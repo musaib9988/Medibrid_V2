@@ -1,0 +1,178 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "User Profile",
+      "description": "Information about a user.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "email": { "type": "string", "maxLength": 100 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "photoURL": { "type": "string", "maxLength": 1024 },
+        "role": { "type": "string", "enum": ["user", "clinic_owner", "admin"] },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["uid", "name", "email", "role", "createdAt", "updatedAt"]
+    },
+    "Clinic": {
+      "title": "Clinic",
+      "description": "A healthcare facility.",
+      "type": "object",
+      "properties": {
+        "ownerId": { "type": "string" },
+        "clinicName": { "type": "string", "maxLength": 100 },
+        "logoUrl": { "type": "string", "maxLength": 1024 },
+        "coverImageUrl": { "type": "string", "maxLength": 1024 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 200 },
+        "city": { "type": "string", "maxLength": 100 },
+        "state": { "type": "string", "maxLength": 100 },
+        "pinCode": { "type": "string", "maxLength": 20 },
+        "latitude": { "type": "number" },
+        "longitude": { "type": "number" },
+        "openingTime": { "type": "string", "maxLength": 20 },
+        "closingTime": { "type": "string", "maxLength": 20 },
+        "workingDays": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 7
+        },
+        "emergencyAvailable": { "type": "boolean" },
+        "services": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 100
+        },
+        "specializations": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 50
+        },
+        "status": { "type": "string", "enum": ["active", "pending", "suspended"] },
+        "verified": { "type": "boolean" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["ownerId", "clinicName", "phone", "email", "address", "city", "state", "status", "verified"]
+    },
+    "Doctor": {
+      "title": "Doctor",
+      "description": "A medical professional in a clinic.",
+      "type": "object",
+      "properties": {
+        "clinicId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "photoUrl": { "type": "string", "maxLength": 1024 },
+        "specialization": { "type": "string", "maxLength": 100 },
+        "qualification": { "type": "string", "maxLength": 100 },
+        "experience": { "type": "number" },
+        "phone": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "maxLength": 100 },
+        "consultationFee": { "type": "number" },
+        "availableDays": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 7
+        },
+        "availableTime": { "type": "string", "maxLength": 100 },
+        "about": { "type": "string", "maxLength": 2000 },
+        "languages": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 20
+        },
+        "registrationNumber": { "type": "string", "maxLength": 50 },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["clinicId", "name", "specialization", "consultationFee", "active"]
+    },
+    "Laboratory": {
+      "title": "Laboratory",
+      "description": "A lab facility inside a clinic.",
+      "type": "object",
+      "properties": {
+        "clinicId": { "type": "string" },
+        "name": { "type": "string", "maxLength": 100 },
+        "logoUrl": { "type": "string", "maxLength": 1024 },
+        "description": { "type": "string", "maxLength": 2000 },
+        "phone": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "maxLength": 100 },
+        "address": { "type": "string", "maxLength": 200 },
+        "availableTests": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 100
+        },
+        "openingHours": { "type": "string", "maxLength": 100 },
+        "workingDays": {
+          "type": "array",
+          "items": { "type": "string" },
+          "maxItems": 7
+        },
+        "homeSampleCollection": { "type": "boolean" },
+        "active": { "type": "boolean" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["clinicId", "name", "active"]
+    },
+    "Appointment": {
+      "title": "Appointment",
+      "description": "A booking made by a user.",
+      "type": "object",
+      "properties": {
+        "patientId": { "type": "string" },
+        "patientName": { "type": "string", "maxLength": 100 },
+        "patientPhone": { "type": "string", "maxLength": 20 },
+        "clinicId": { "type": "string" },
+        "doctorId": { "type": "string" },
+        "doctorName": { "type": "string", "maxLength": 100 },
+        "serviceName": { "type": "string", "maxLength": 100 },
+        "date": { "type": "string", "maxLength": 20 },
+        "formattedDate": { "type": "string", "maxLength": 50 },
+        "timeSlot": { "type": "string", "maxLength": 20 },
+        "status": { "type": "string", "enum": ["upcoming", "confirmed", "completed", "cancelled"] },
+        "notes": { "type": "string", "maxLength": 2000 },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["patientId", "patientName", "clinicId", "serviceName", "date", "timeSlot", "status"]
+    }
+  },
+  "firestore": {
+    "users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "User profile collection."
+    },
+    "clinics/{clinicId}": {
+      "schema": { "$ref": "#/entities/Clinic" },
+      "description": "Clinics on the platform."
+    },
+    "doctors/{doctorId}": {
+      "schema": { "$ref": "#/entities/Doctor" },
+      "description": "Doctors assigned to clinics."
+    },
+    "laboratories/{laboratoryId}": {
+      "schema": { "$ref": "#/entities/Laboratory" },
+      "description": "Laboratories inside clinics."
+    },
+    "appointments/{appointmentId}": {
+      "schema": { "$ref": "#/entities/Appointment" },
+      "description": "Appointments booked by users."
+    },
+    "banners/{bannerId}": {
+      "schema": {
+        "title": "Banner",
+        "description": "Banners on the platform.",
+        "type": "object",
+        "properties": {
+          "active": { "type": "boolean" }
+        }
+      },
+      "description": "Banners collection."
+    }
+  }
+}

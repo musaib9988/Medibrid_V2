@@ -1,0 +1,10 @@
+{
+  "name": "MediBrid",
+  "description": "Your Health Partner - Healthcare discovery and appointment platform for Jammu \u0026 Kashmir",
+  "requestFramePermissions": [
+    "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
