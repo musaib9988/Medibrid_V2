@@ -476,10 +476,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const loginWithGoogle = async (requestedRole?: UserRole) => {
     try {
-      googleProvider.addScope('https://www.googleapis.com/auth/chat.messages');
-      googleProvider.addScope('https://www.googleapis.com/auth/chat.spaces');
-      googleProvider.addScope('https://www.googleapis.com/auth/chat.memberships');
-
       const userCred = await signInWithPopup(auth, googleProvider);
       
       const credential = GoogleAuthProvider.credentialFromResult(userCred);
