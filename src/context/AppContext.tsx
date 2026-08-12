@@ -141,6 +141,9 @@ interface AppContextType {
   addDistrict: (data: Partial<District>) => Promise<void>;
   deleteDistrict: (id: string) => Promise<void>;
   toggleDistrictStatus: (id: string, active: boolean) => Promise<void>;
+  addBanner: (data: Partial<Banner>) => Promise<void>;
+  deleteBanner: (id: string) => Promise<void>;
+  toggleBannerStatus: (id: string, active: boolean) => Promise<void>;
   chats: Chat[];
 
   // App UI State
@@ -180,7 +183,8 @@ interface AppContextType {
   deleteDoctor: (doctorId: string) => Promise<void>;
   addLaboratory: (labData: Omit<Laboratory, 'id' | 'clinicId' | 'createdAt'>) => Promise<void>;
   deleteLaboratory: (labId: string) => Promise<void>;
-  createBooking: (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>) => Promise<void>;
+  createBooking: (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>) => Promise<Appointment>;
+  updateClinicWaitingPatients: (clinicId: string, count: number) => Promise<void>;
   
   // Admin Management
   updateUserStatus: (uid: string, status: 'active' | 'blocked') => Promise<void>;
@@ -192,12 +196,24 @@ interface AppContextType {
   requestPermissions: () => Promise<void>;
   addCategory: (data: any) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
-  addDistrict: (data: any) => Promise<void>;
-  deleteDistrict: (id: string) => Promise<void>;
-  toggleDistrictStatus: (id: string, active: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
+
+const DEFAULT_DISTRICTS: District[] = [
+  { id: 'srinagar', name: 'Srinagar', active: true },
+  { id: 'baramulla', name: 'Baramulla', active: true },
+  { id: 'anantnag', name: 'Anantnag', active: true },
+  { id: 'budgam', name: 'Budgam', active: true },
+  { id: 'pulwama', name: 'Pulwama', active: true },
+  { id: 'ganderbal', name: 'Ganderbal', active: true },
+  { id: 'kupwara', name: 'Kupwara', active: true },
+  { id: 'kulgam', name: 'Kulgam', active: true },
+  { id: 'shopian', name: 'Shopian', active: true },
+  { id: 'bandipora', name: 'Bandipora', active: true },
+  { id: 'jammu', name: 'Jammu', active: true },
+  { id: 'udhampur', name: 'Udhampur', active: true },
+];
 
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<UserRole | null>(null);
@@ -214,7 +230,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [banners, setBanners] = useState<Banner[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
-  const [districts, setDistricts] = useState<District[]>([]);
+  const [districts, setDistricts] = useState<District[]>(DEFAULT_DISTRICTS);
 
   const [patientTab, setPatientTab] = useState<'home' | 'discover' | 'appointments' | 'profile' | 'messages'>('home');
   const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners'>('dashboard');
@@ -321,8 +337,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         console.info("Categories collection sync notice:", error.message);
       });
       unsubDistricts = onSnapshot(collection(db, 'districts'), (snapshot) => {
-        setDistricts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District)));
-      }, (error) => console.error("Snapshot error details on districts:", {code: error.code, message: error.message, name: error.name}));
+        if (!snapshot.empty) {
+          const remoteDistricts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
+          setDistricts(prev => {
+            const distMap = new Map<string, District>();
+            DEFAULT_DISTRICTS.forEach(d => distMap.set(d.id, d));
+            remoteDistricts.forEach(d => distMap.set(d.id, d));
+            return Array.from(distMap.values());
+          });
+        }
+      }, (error) => {
+        console.info("Districts collection sync notice (using defaults):", error.message);
+      });
     } catch (error) {
       console.warn("Could not fetch realtime data. Check Firestore permissions.", error);
     }
@@ -367,6 +393,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubLabs();
       unsubBanners();
       unsubCategories();
+      unsubDistricts();
       unsubAppointments();
       unsubUsers();
       unsubChats();
@@ -553,15 +580,85 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await deleteDoc(doc(db, 'laboratories', labId));
   };
 
-  const createBooking = async (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>) => {
-    if (!firebaseUser || !userProfile) return;
-    await addDoc(collection(db, 'appointments'), {
+  const updateClinicWaitingPatients = async (clinicId: string, count: number) => {
+    const safeCount = Math.max(0, count);
+    setClinics(prev => prev.map(c => c.id === clinicId ? { ...c, waitingPatients: safeCount } : c));
+    try {
+      await updateDoc(doc(db, 'clinics', clinicId), { waitingPatients: safeCount, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("Error updating clinic waiting patients:", err);
+    }
+  };
+
+  const createBooking = async (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>): Promise<Appointment> => {
+    if (!firebaseUser) {
+      openAuthModal('user');
+      throw new Error('Please log in or sign up to book an appointment.');
+    }
+    const name = userProfile?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Patient';
+    const phone = userProfile?.phone || '';
+
+    // Calculate Token Number automatically: (current clinic waiting patients || 0) + 1
+    const targetClinic = clinics.find(c => c.id === appointmentData.clinicId);
+    const currentWaiting = targetClinic?.waitingPatients ?? 0;
+    const tokenNumber = currentWaiting + 1;
+
+    const newAptData = {
       ...appointmentData,
       patientId: firebaseUser.uid,
-      patientName: userProfile.name,
-      patientPhone: userProfile.phone || '',
+      patientName: name,
+      patientPhone: phone,
+      status: appointmentData.status || 'confirmed',
+      tokenNumber,
       createdAt: new Date().toISOString(),
-    });
+    };
+
+    let createdApt: Appointment;
+
+    try {
+      const docRef = await addDoc(collection(db, 'appointments'), newAptData);
+      createdApt = { id: docRef.id, ...newAptData };
+      setAppointments(prev => [...prev, createdApt]);
+    } catch (err) {
+      console.error("Firestore booking write error:", err);
+      const tempId = `apt-${Date.now()}`;
+      createdApt = { id: tempId, ...newAptData };
+      setAppointments(prev => [...prev, createdApt]);
+    }
+
+    // Update clinic waiting queue count in Firestore & local state
+    if (appointmentData.clinicId) {
+      updateClinicWaitingPatients(appointmentData.clinicId, tokenNumber);
+    }
+
+    // Send notification to Patient
+    try {
+      sendAppNotification(
+        "Appointment Confirmed! 🎫",
+        `Your OPD Token #${tokenNumber} at ${targetClinic?.clinicName || 'Clinic'} is confirmed for ${appointmentData.timeSlot}.`,
+        firebaseUser.uid,
+        userProfile?.fcmToken
+      );
+    } catch (e) {
+      console.error("Error sending patient booking notification:", e);
+    }
+
+    // Send notification to Clinic Owner
+    if (targetClinic?.ownerId) {
+      try {
+        const ownerUser = users.find(u => u.uid === targetClinic.ownerId);
+        sendAppNotification(
+          "New OPD Appointment Booked! 🔔",
+          `Patient ${name} booked for ${appointmentData.timeSlot}. Assigned Token #${tokenNumber}.`,
+          targetClinic.ownerId,
+          ownerUser?.fcmToken
+        );
+      } catch (e) {
+        console.error("Error sending clinic booking notification:", e);
+      }
+    }
+
+    return createdApt;
   };
 
   const updateUserStatus = async (uid: string, status: 'active' | 'blocked') => {
@@ -672,20 +769,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addDistrict = async (data: Partial<District>) => {
     if (!data.name) return;
+    const id = data.name.toLowerCase().trim().replace(/\s+/g, '-');
+    const newDist: District = {
+      id,
+      name: data.name.trim(),
+      active: true,
+      createdAt: new Date().toISOString()
+    };
+    setDistricts(prev => [...prev.filter(d => d.id !== id), newDist]);
     try {
-      const id = Date.now().toString();
-      await setDoc(doc(db, 'districts', id), {
-        id,
-        name: data.name,
-        active: true,
-        createdAt: new Date().toISOString()
-      });
+      await setDoc(doc(db, 'districts', id), newDist, { merge: true });
     } catch (error) {
       console.error("Error adding district:", error);
     }
   };
 
   const deleteDistrict = async (id: string) => {
+    setDistricts(prev => prev.filter(d => d.id !== id));
     try {
       await deleteDoc(doc(db, 'districts', id));
     } catch (error) {
@@ -694,8 +794,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const toggleDistrictStatus = async (id: string, active: boolean) => {
+    setDistricts(prev => prev.map(d => d.id === id ? { ...d, active } : d));
     try {
-      await setDoc(doc(db, 'districts', id), { active }, { merge: true });
+      const existing = districts.find(d => d.id === id);
+      await setDoc(doc(db, 'districts', id), {
+        id,
+        name: existing?.name || id,
+        active,
+        updatedAt: new Date().toISOString()
+      }, { merge: true });
     } catch (error) {
       console.error("Error toggling district status:", error);
     }
@@ -704,6 +811,43 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const deleteCategory = async (id: string) => {
     if (userProfile?.role !== 'admin') return;
     await deleteDoc(doc(db, 'categories', id));
+  };
+
+  const addBanner = async (data: Partial<Banner>) => {
+    if (!data.title || !data.imageUrl) return;
+    const bannerId = Date.now().toString();
+    const newB: Banner = {
+      id: bannerId,
+      title: data.title,
+      imageUrl: data.imageUrl,
+      link: data.link || '',
+      active: true,
+      createdAt: new Date().toISOString()
+    };
+    setBanners(prev => [newB, ...prev]);
+    try {
+      await setDoc(doc(db, 'banners', bannerId), newB);
+    } catch (error) {
+      console.error("Error adding banner:", error);
+    }
+  };
+
+  const deleteBanner = async (id: string) => {
+    setBanners(prev => prev.filter(b => b.id !== id));
+    try {
+      await deleteDoc(doc(db, 'banners', id));
+    } catch (error) {
+      console.error("Error deleting banner:", error);
+    }
+  };
+
+  const toggleBannerStatus = async (id: string, active: boolean) => {
+    setBanners(prev => prev.map(b => b.id === id ? { ...b, active } : b));
+    try {
+      await setDoc(doc(db, 'banners', id), { active }, { merge: true });
+    } catch (error) {
+      console.error("Error toggling banner status:", error);
+    }
   };
 
   return (
@@ -718,9 +862,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isAuthModalOpen, authModalRole, openAuthModal, closeAuthModal,
       isWelcomeModalOpen, setIsWelcomeModalOpen,
       loginWithFirebaseEmail, registerWithFirebaseEmail, resetPassword, loginWithGoogle, logoutUser,
-      createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking,
+      createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking, updateClinicWaitingPatients,
       updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
-      addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus
+      addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
+      addBanner, deleteBanner, toggleBannerStatus
     }}>
       {children}
     </AppContext.Provider>

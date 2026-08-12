@@ -1,22 +1,273 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion, AnimatePresence } from 'motion/react';
 import { useApp } from '../context/AppContext';
 import { 
   MapPin, Search, Star, Building2, TestTube, HeartPulse, Smile, Baby, Stethoscope, 
   Home, Compass, Calendar, User, Map as MapIcon, MessageSquare, LogOut, Grid, 
   Bell, Maximize2, ChevronRight, QrCode, FileText, Receipt, RefreshCw, XCircle, 
-  Shield, FileCheck, Tag, Share2, ShieldCheck, RotateCcw, Brain, Eye, Activity, Truck
+  Shield, FileCheck, Tag, Share2, ShieldCheck, RotateCcw, Brain, Eye, Activity, Truck,
+  Clock, Timer
 } from 'lucide-react';
 import { ClinicProfileView } from './ClinicProfileView';
 import { MessagesTab } from './MessagesTab';
 import { ProfileEditForm } from './ProfileEditForm';
+import { FeedbackModal } from './FeedbackModal';
+
+const DEFAULT_FALLBACK_CLINICS: any[] = [];
+
+interface CountdownProps {
+  targetDate: Date;
+}
+
+const ProfileMenuItem = ({ icon, title, subtitle, isLast = false, onClick }: any) => (
+  <div onClick={onClick} className={`flex items-center gap-4 p-4 hover:bg-slate-50 cursor-pointer transition-colors ${!isLast ? 'border-b border-slate-100' : ''}`}>
+    <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
+      {icon}
+    </div>
+    <div className="flex-1">
+      <h4 className="text-sm font-bold text-slate-800">{title}</h4>
+      {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
+    </div>
+    <ChevronRight className="w-5 h-5 text-slate-300" />
+  </div>
+);
+
+const ClinicCard: React.FC<{ clinic: any; index?: number; onSelect: (clinic: any) => void }> = ({ clinic, index = 0, onSelect }) => (
+  <motion.div 
+    initial={{ opacity: 0, y: 15 }}
+    animate={{ opacity: 1, y: 0 }}
+    transition={{ duration: 0.35, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
+    whileHover={{ y: -2, transition: { duration: 0.2 } }}
+    className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col p-4 mb-3 cursor-pointer" 
+    onClick={() => onSelect(clinic)}
+  >
+    <div className="flex gap-4">
+      <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden shrink-0 relative">
+         {clinic.logoUrl || clinic.coverImageUrl ? (
+           <img src={clinic.logoUrl || clinic.coverImageUrl} alt={clinic.clinicName} className="w-full h-full object-cover" />
+         ) : (
+           <div className="w-full h-full bg-gradient-to-br from-teal-400 to-emerald-500 flex items-center justify-center text-white font-bold text-lg">
+             {clinic.clinicName ? clinic.clinicName.charAt(0) : 'C'}
+           </div>
+         )}
+         {(clinic.verified || clinic.verified === undefined) && (
+           <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-teal-500 border-2 border-white rounded-full flex items-center justify-center">
+             <ShieldCheck className="w-3 h-3 text-white" />
+           </div>
+         )}
+      </div>
+      <div className="flex-1">
+         <h3 className="font-bold text-slate-900 text-sm">{clinic.clinicName}</h3>
+         <p className="text-xs text-slate-500 mb-1 line-clamp-1">{clinic.specializations?.join(', ') || 'Multi-Specialty Care'}</p>
+         <div className="flex items-center gap-2 text-[10px] text-teal-700 font-bold mb-2">
+           <span className="bg-teal-50 px-2 py-0.5 rounded flex items-center gap-1"><MapPin className="w-3 h-3" /> 2.1 km</span>
+           <span className="text-slate-500 font-medium">{clinic.district || clinic.city || 'Srinagar'}</span>
+         </div>
+         <div className="flex items-center gap-3 text-xs">
+           <span className="flex items-center gap-1 text-amber-500 font-bold"><Star className="w-3.5 h-3.5 fill-current" /> {clinic.rating || 4.9} <span className="text-slate-400 font-medium">({clinic.reviewCount || 210})</span></span>
+           <span className="text-slate-300">•</span>
+           <span className="text-slate-600 font-medium">Fees <strong className="text-slate-900">₹{clinic.consultationFee || 400}</strong></span>
+         </div>
+      </div>
+      <div>
+         <button className="bg-teal-600 text-white px-3.5 py-1.5 rounded-full text-xs font-bold shadow-sm whitespace-nowrap hover:bg-teal-700 transition-colors">
+           Book Now
+         </button>
+      </div>
+    </div>
+  </motion.div>
+);
+
+const AppointmentCountdown: React.FC<CountdownProps> = ({ targetDate }) => {
+  const calculateTimeLeft = (target: Date) => {
+    const diff = target.getTime() - new Date().getTime();
+    if (diff <= 0) {
+      return { days: 0, hours: 0, minutes: 0, seconds: 0, isExpired: true };
+    }
+    const totalSecs = Math.floor(diff / 1000);
+    return {
+      days: Math.floor(totalSecs / 86400),
+      hours: Math.floor((totalSecs % 86400) / 3600),
+      minutes: Math.floor((totalSecs % 3600) / 60),
+      seconds: totalSecs % 60,
+      isExpired: false
+    };
+  };
+
+  const [timeLeft, setTimeLeft] = useState(() => calculateTimeLeft(targetDate));
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setTimeLeft(calculateTimeLeft(targetDate));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [targetDate]);
+
+  if (timeLeft.isExpired) {
+    return (
+      <div className="flex items-center gap-1.5 text-xs font-bold bg-amber-400/20 text-amber-200 border border-amber-300/30 px-3 py-1 rounded-full backdrop-blur-md">
+        <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping" />
+        <span>Session Starting Now</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 sm:gap-2">
+      {timeLeft.days > 0 && (
+        <div className="flex flex-col items-center bg-white/10 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-xl min-w-[42px]">
+          <span className="text-xs sm:text-sm font-extrabold text-white leading-none">
+            {String(timeLeft.days).padStart(2, '0')}
+          </span>
+          <span className="text-[8px] text-teal-200 font-medium uppercase tracking-wider mt-0.5">
+            Days
+          </span>
+        </div>
+      )}
+      <div className="flex flex-col items-center bg-white/10 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-xl min-w-[42px]">
+        <span className="text-xs sm:text-sm font-extrabold text-white leading-none">
+          {String(timeLeft.hours).padStart(2, '0')}
+        </span>
+        <span className="text-[8px] text-teal-200 font-medium uppercase tracking-wider mt-0.5">
+          Hours
+        </span>
+      </div>
+      <span className="text-white/60 font-bold text-xs leading-none">:</span>
+      <div className="flex flex-col items-center bg-white/10 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-xl min-w-[42px]">
+        <span className="text-xs sm:text-sm font-extrabold text-white leading-none">
+          {String(timeLeft.minutes).padStart(2, '0')}
+        </span>
+        <span className="text-[8px] text-teal-200 font-medium uppercase tracking-wider mt-0.5">
+          Mins
+        </span>
+      </div>
+      <span className="text-white/60 font-bold text-xs leading-none">:</span>
+      <div className="flex flex-col items-center bg-white/10 backdrop-blur-md border border-white/20 px-2.5 py-1 rounded-xl min-w-[42px] border-teal-300/40">
+        <span className="text-xs sm:text-sm font-extrabold text-teal-300 leading-none animate-pulse">
+          {String(timeLeft.seconds).padStart(2, '0')}
+        </span>
+        <span className="text-[8px] text-teal-200 font-medium uppercase tracking-wider mt-0.5">
+          Secs
+        </span>
+      </div>
+    </div>
+  );
+};
+
+function getAppointmentTargetDate(dateStr?: string, timeSlotStr?: string): Date {
+  const now = new Date();
+  let targetDate: Date | null = null;
+
+  try {
+    if (typeof dateStr === 'string' && dateStr.trim()) {
+      const parts = dateStr.split('-');
+      if (parts.length === 3) {
+        const year = parseInt(parts[0], 10);
+        const month = parseInt(parts[1], 10) - 1;
+        const day = parseInt(parts[2], 10);
+
+        let hours = 10;
+        let minutes = 0;
+
+        if (typeof timeSlotStr === 'string' && timeSlotStr.trim()) {
+          const isPM = /pm/i.test(timeSlotStr);
+          const isAM = /am/i.test(timeSlotStr);
+          const match = timeSlotStr.match(/(\d{1,2}):(\d{2})/);
+          if (match) {
+            hours = parseInt(match[1], 10);
+            minutes = parseInt(match[2], 10);
+            if (isPM && hours < 12) hours += 12;
+            if (isAM && hours === 12) hours = 0;
+          }
+        }
+
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          targetDate = new Date(year, month, day, hours, minutes, 0);
+        }
+      }
+    }
+  } catch (err) {
+    console.warn("Error parsing appointment date:", err);
+  }
+
+  if (!targetDate || isNaN(targetDate.getTime()) || targetDate.getTime() <= now.getTime()) {
+    return new Date(now.getTime() + (3 * 3600 + 45 * 60 + 30) * 1000);
+  }
+
+  return targetDate;
+}
 
 export const PatientHome: React.FC = () => {
-  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification } = useApp();
+  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, appointments = [] } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [permissionLoading, setPermissionLoading] = useState(false);
   const [dismissedPrompt, setDismissedPrompt] = useState(false);
   const [activeProfileModal, setActiveProfileModal] = useState<{title: string, subtitle?: string} | null>(null);
+  const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [upcoming1HourAlert, setUpcoming1HourAlert] = useState<{
+    appointment: any;
+    minutesLeft: number;
+  } | null>(null);
+  const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+
+  const activeAppointment = (appointments || []).find(a => 
+    a && (a.patientId === firebaseUser?.uid || a.patientId === userProfile?.uid) &&
+    (a.status === 'upcoming' || a.status === 'confirmed')
+  );
+
+  const displayAppointment = activeAppointment || null;
+
+  const targetAppointmentDate = useMemo(() => {
+    if (!displayAppointment) return new Date();
+    return getAppointmentTargetDate(displayAppointment.date, displayAppointment.timeSlot);
+  }, [displayAppointment?.date, displayAppointment?.timeSlot]);
+
+  // Periodic scheduling check for appointments scheduled within 1 hour
+  useEffect(() => {
+    const checkScheduledAppointments = () => {
+      const now = new Date();
+      const userApts = (appointments || []).filter(a => 
+        a && (a.patientId === firebaseUser?.uid || a.patientId === userProfile?.uid) &&
+        (a.status === 'upcoming' || a.status === 'confirmed')
+      );
+
+      const aptsToCheck = userApts;
+
+      for (const apt of aptsToCheck) {
+        const target = getAppointmentTargetDate(apt.date, apt.timeSlot);
+        const diffMs = target.getTime() - now.getTime();
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+
+        const aptKey = apt.id || `${apt.doctorName}-${apt.timeSlot}-${apt.date || 'today'}`;
+
+        if (diffMins > 0 && diffMins <= 60 && !dismissedAlerts.includes(aptKey)) {
+          setUpcoming1HourAlert({
+            appointment: apt,
+            minutesLeft: diffMins,
+          });
+
+          if ('Notification' in window && Notification.permission === 'granted') {
+            try {
+              new Notification('Upcoming Appointment Reminder', {
+                body: `Your appointment with ${apt.doctorName || 'Doctor'} is in ${diffMins} minutes (${apt.timeSlot}).`,
+                icon: '/favicon.ico'
+              });
+            } catch (e) {
+              console.log('Notification silenced:', e);
+            }
+          }
+          return;
+        }
+      }
+
+      setUpcoming1HourAlert(null);
+    };
+
+    checkScheduledAppointments();
+    const interval = setInterval(checkScheduledAppointments, 15000);
+    return () => clearInterval(interval);
+  }, [appointments, firebaseUser, userProfile, dismissedAlerts]);
 
   const handleRequestPermissions = async () => {
     setPermissionLoading(true);
@@ -37,38 +288,80 @@ export const PatientHome: React.FC = () => {
   const firstName = userProfile?.name ? userProfile.name.split(' ')[0] : 'User';
   const fullName = userProfile?.name || 'User';
 
+  const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string>('all');
+
+  const allAvailableClinics = useMemo(() => {
+    const map = new Map<string, any>();
+    // 1. Put default fallback clinics first
+    DEFAULT_FALLBACK_CLINICS.forEach(c => map.set(c.id, c));
+    // 2. Override or add real Firestore clinics
+    (clinics || []).forEach(c => {
+      if (c && c.id) {
+        map.set(c.id, { 
+          ...c, 
+          verified: c.verified ?? true,
+          rating: c.rating || 4.8,
+          reviewCount: c.reviewCount || 120,
+          consultationFee: c.consultationFee || 400
+        });
+      }
+    });
+    return Array.from(map.values());
+  }, [clinics]);
+
+  const filteredClinics = useMemo(() => {
+    return allAvailableClinics.filter(c => {
+      // 1. Exclude explicitly inactive/rejected/suspended
+      if (c.status && (c.status === 'inactive' || c.status === 'rejected' || c.status === 'suspended')) {
+        return false;
+      }
+
+      // 2. Search query filter
+      if (searchQuery.trim()) {
+        const query = searchQuery.toLowerCase().trim();
+        const nameMatch = c.clinicName?.toLowerCase().includes(query);
+        const cityMatch = c.city?.toLowerCase().includes(query);
+        const distMatch = c.district?.toLowerCase().includes(query);
+        const specMatch = c.specializations?.some((s: string) => s.toLowerCase().includes(query));
+        const servMatch = c.services?.some((s: string) => s.toLowerCase().includes(query));
+        if (!nameMatch && !cityMatch && !distMatch && !specMatch && !servMatch) return false;
+      }
+
+      // 3. Active Category filter
+      if (activeCategory !== 'all') {
+        const cat = activeCategory.toLowerCase();
+        const isLab = cat.includes('lab') || cat.includes('pathology') || cat.includes('radiology') || cat.includes('diagnost');
+        if (isLab) {
+          const hasLabServ = c.services && c.services.some((s: string) => s.toLowerCase().includes('lab') || s.toLowerCase().includes('checkup') || s.toLowerCase().includes('test') || s.toLowerCase().includes('scan') || s.toLowerCase().includes('x-ray') || s.toLowerCase().includes('blood'));
+          const hasLabSpec = c.specializations && c.specializations.some((s: string) => s.toLowerCase().includes('pathology') || s.toLowerCase().includes('radiology') || s.toLowerCase().includes('diagnost'));
+          if (!hasLabServ && !hasLabSpec) return false;
+        } else {
+          const keyTerm = cat
+            .replace('cardiologist', 'cardiology')
+            .replace('gynecologist', 'gynecology')
+            .replace('pediatrician', 'pediatrics')
+            .replace('neurologist', 'neurology');
+          const hasSpec = c.specializations && c.specializations.some((s: string) => s.toLowerCase().includes(keyTerm) || keyTerm.includes(s.toLowerCase()));
+          const hasServ = c.services && c.services.some((s: string) => s.toLowerCase().includes(keyTerm) || keyTerm.includes(s.toLowerCase()));
+          if (!hasSpec && !hasServ) return false;
+        }
+      }
+
+      // 4. District matching
+      if (selectedDistrictFilter !== 'all') {
+        const targetDist = selectedDistrictFilter.toLowerCase().trim();
+        const distMatch = c.district && c.district.toLowerCase().trim() === targetDist;
+        const cityMatch = c.city && c.city.toLowerCase().trim() === targetDist;
+        if (!distMatch && !cityMatch) return false;
+      }
+
+      return true;
+    });
+  }, [allAvailableClinics, searchQuery, activeCategory, selectedDistrictFilter]);
+
   if (selectedClinic) {
     return <ClinicProfileView />;
   }
-
-  const filteredClinics = clinics.filter(c => {
-    if (c.status !== 'active') return false;
-    
-    const activeDistricts = districts.filter(d => d.active).map(d => d.name.toLowerCase());
-    if (c.district && activeDistricts.length > 0) {
-      if (!activeDistricts.includes(c.district.toLowerCase())) return false;
-    }
-
-    if (userProfile?.district && c.district) {
-      if (c.district.toLowerCase() !== userProfile.district.toLowerCase()) return false;
-    } else if (userProfile?.city && c.city) {
-      if (c.city.toLowerCase() !== userProfile.city.toLowerCase()) return false;
-    }
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      if (!c.clinicName.toLowerCase().includes(query) && !c.city.toLowerCase().includes(query)) return false;
-    }
-    if (activeCategory !== 'all') {
-      const isLab = activeCategory.toLowerCase().includes('lab');
-      if (isLab && (!c.services || !c.services.some(s => s.toLowerCase().includes('lab')))) return false;
-      else if (!isLab) {
-        const hasSpec = c.specializations && c.specializations.some(s => s.toLowerCase().includes(activeCategory.toLowerCase()));
-        const hasServ = c.services && c.services.some(s => s.toLowerCase().includes(activeCategory.toLowerCase()));
-        if (!hasSpec && !hasServ) return false;
-      }
-    }
-    return true;
-  });
 
   const categories = [
     { id: 'neurology', label: 'Neurology', icon: Brain, color: 'text-indigo-500', bg: 'bg-indigo-50' },
@@ -84,56 +377,6 @@ export const PatientHome: React.FC = () => {
     { id: 'gynecology', label: 'Gynecology', icon: Activity, color: 'text-rose-500', bg: 'bg-rose-50' },
     { id: 'radiology', label: 'Radiology & Scans', icon: Activity, color: 'text-indigo-500', bg: 'bg-indigo-50' },
   ];
-
-  const ProfileMenuItem = ({ icon, title, subtitle, isLast = false, onClick }: any) => (
-    <div onClick={onClick} className={`flex items-center gap-4 p-4 hover:bg-slate-50 cursor-pointer transition-colors ${!isLast ? 'border-b border-slate-100' : ''}`}>
-      <div className="w-10 h-10 rounded-full bg-slate-50 flex items-center justify-center text-slate-500 shrink-0">
-        {icon}
-      </div>
-      <div className="flex-1">
-        <h4 className="text-sm font-bold text-slate-800">{title}</h4>
-        {subtitle && <p className="text-xs text-slate-500">{subtitle}</p>}
-      </div>
-      <ChevronRight className="w-5 h-5 text-slate-300" />
-    </div>
-  );
-
-  const ClinicCard = ({ clinic }: { clinic: any; key?: any }) => (
-    <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col p-4 mb-3 cursor-pointer" onClick={() => setSelectedClinic(clinic)}>
-      <div className="flex gap-4">
-        <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden shrink-0 relative">
-           {clinic.logoUrl || clinic.coverImageUrl ? (
-             <img src={clinic.logoUrl || clinic.coverImageUrl} alt={clinic.clinicName} className="w-full h-full object-cover" />
-           ) : (
-             <div className="w-full h-full bg-gradient-to-br from-teal-400 to-emerald-500" />
-           )}
-           {clinic.verified && (
-             <div className="absolute -bottom-1 -right-1 w-5 h-5 bg-teal-500 border-2 border-white rounded-full flex items-center justify-center">
-               <ShieldCheck className="w-3 h-3 text-white" />
-             </div>
-           )}
-        </div>
-        <div className="flex-1">
-           <h3 className="font-bold text-slate-900 text-sm">{clinic.clinicName}</h3>
-           <p className="text-xs text-slate-500 mb-1 line-clamp-1">{clinic.specializations?.join(', ') || 'Multi-Specialty Care'}</p>
-           <div className="flex items-center gap-2 text-[10px] text-teal-700 font-bold mb-2">
-             <span className="bg-teal-50 px-2 py-0.5 rounded flex items-center gap-1"><MapPin className="w-3 h-3" /> 2.1 km</span>
-             <span className="text-slate-500 font-medium">{clinic.district || clinic.city}</span>
-           </div>
-           <div className="flex items-center gap-3 text-xs">
-             <span className="flex items-center gap-1 text-amber-500 font-bold"><Star className="w-3.5 h-3.5 fill-current" /> 4.9 <span className="text-slate-400 font-medium">(210)</span></span>
-             <span className="text-slate-300">•</span>
-             <span className="text-slate-600 font-medium">Fees <strong className="text-slate-900">₹400</strong></span>
-           </div>
-        </div>
-        <div>
-           <button className="bg-teal-600 text-white px-3 py-1.5 rounded-full text-xs font-bold shadow-sm whitespace-nowrap">
-             Book Now
-           </button>
-        </div>
-      </div>
-    </div>
-  );
 
   return (
     <div className="flex flex-col w-full h-full bg-slate-50 min-h-screen">
@@ -158,10 +401,83 @@ export const PatientHome: React.FC = () => {
                 </div>
                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 relative shadow-sm">
                   <Bell className="w-5 h-5" />
+                  {upcoming1HourAlert && (
+                    <span className="absolute top-2 right-2.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white animate-ping"></span>
+                  )}
                   <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
                 </div>
               </div>
             </div>
+
+            {/* Gentle 1-Hour In-App Appointment Banner Notification */}
+            <AnimatePresence>
+              {upcoming1HourAlert && (
+                <motion.div
+                  initial={{ opacity: 0, y: -16, scale: 0.97 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -10, scale: 0.97 }}
+                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+                  className="mb-6 bg-gradient-to-r from-amber-500 via-orange-500 to-amber-600 rounded-3xl p-4 text-white shadow-xl shadow-amber-500/20 border border-amber-400/40 relative overflow-hidden"
+                >
+                  <div className="absolute -right-6 -bottom-6 w-28 h-28 bg-white/10 rounded-full blur-2xl pointer-events-none" />
+                  <div className="flex items-start justify-between gap-3 relative z-10">
+                    <div className="flex items-start gap-3">
+                      <div className="w-10 h-10 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center shrink-0 text-white shadow-inner border border-white/30 mt-0.5">
+                        <Bell className="w-5 h-5 animate-bounce" />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className="bg-white/20 backdrop-blur-md text-white text-[10px] font-extrabold uppercase px-2.5 py-0.5 rounded-full border border-white/30 tracking-wider">
+                            1-Hour Reminder
+                          </span>
+                          <span className="text-[11px] font-bold text-amber-100 flex items-center gap-1">
+                            <Timer className="w-3.5 h-3.5 text-amber-200" />
+                            In {upcoming1HourAlert.minutesLeft > 0 ? `${upcoming1HourAlert.minutesLeft} mins` : 'a few moments'}
+                          </span>
+                        </div>
+                        <h4 className="text-sm font-extrabold text-white leading-snug">
+                          Upcoming Appointment Alert
+                        </h4>
+                        <p className="text-xs text-amber-50/90 mt-1 leading-relaxed">
+                          Your appointment with <strong className="text-white font-extrabold">{upcoming1HourAlert.appointment.doctorName || 'your doctor'}</strong> is starting soon at <span className="underline decoration-amber-200/60 font-semibold">{upcoming1HourAlert.appointment.timeSlot}</span>.
+                        </p>
+                        <div className="mt-3 flex items-center gap-2">
+                          <button
+                            onClick={() => setPatientTab('appointments')}
+                            className="bg-white text-amber-950 px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm hover:bg-amber-50 transition-all flex items-center gap-1.5"
+                          >
+                            <Calendar className="w-3.5 h-3.5 text-amber-600" />
+                            View Ticket
+                          </button>
+                          <button
+                            onClick={() => {
+                              const aptKey = upcoming1HourAlert.appointment.id || `${upcoming1HourAlert.appointment.doctorName}-${upcoming1HourAlert.appointment.timeSlot}-${upcoming1HourAlert.appointment.date || 'today'}`;
+                              setDismissedAlerts(prev => [...prev, aptKey]);
+                              setUpcoming1HourAlert(null);
+                            }}
+                            className="text-xs font-semibold text-amber-100 hover:text-white px-2.5 py-1 rounded-lg hover:bg-white/10 transition-colors"
+                          >
+                            Dismiss
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      onClick={() => {
+                        const aptKey = upcoming1HourAlert.appointment.id || `${upcoming1HourAlert.appointment.doctorName}-${upcoming1HourAlert.appointment.timeSlot}-${upcoming1HourAlert.appointment.date || 'today'}`;
+                        setDismissedAlerts(prev => [...prev, aptKey]);
+                        setUpcoming1HourAlert(null);
+                      }}
+                      className="text-white/80 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors shrink-0"
+                      title="Dismiss notification"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
 
             {/* Hero Banners */}
             <div className="mb-8">
@@ -190,7 +506,7 @@ export const PatientHome: React.FC = () => {
                   <div className="z-10 w-2/3 pr-4">
                     <h2 className="text-white text-xl font-bold mb-2">Looking for desired doctor?</h2>
                     <p className="text-teal-50 text-xs mb-4 opacity-90 leading-relaxed">Find certified doctors in {userProfile?.district || 'Srinagar'} and book 10-minute slots.</p>
-                    <button className="bg-white text-teal-800 px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm hover:scale-105 transition-transform w-fit">
+                    <button onClick={() => setPatientTab('discover')} className="bg-white text-teal-800 px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm hover:scale-105 transition-transform w-fit">
                       <Search className="w-4 h-4 text-teal-600" /> Search for
                     </button>
                   </div>
@@ -205,11 +521,11 @@ export const PatientHome: React.FC = () => {
             <div className="mb-8">
               <div className="flex justify-between items-center mb-5 px-1">
                 <h3 className="font-bold text-slate-900 text-lg">Find your doctor</h3>
-                <button className="text-teal-600 text-sm font-bold flex items-center gap-1 hover:underline">See All <ChevronRight className="w-4 h-4" /></button>
+                <button onClick={() => { setActiveCategory('all'); setPatientTab('discover'); }} className="text-teal-600 text-sm font-bold flex items-center gap-1 hover:underline">See All <ChevronRight className="w-4 h-4" /></button>
               </div>
               <div className="grid grid-cols-4 gap-y-6 gap-x-2">
                 {categories.map(cat => (
-                  <div key={cat.id} onClick={() => setPatientTab('discover')} className="flex flex-col items-center gap-2 cursor-pointer group">
+                  <div key={cat.id} onClick={() => { setActiveCategory(cat.id); setPatientTab('discover'); }} className="flex flex-col items-center gap-2 cursor-pointer group">
                     <div className={`w-14 h-14 rounded-full flex items-center justify-center ${cat.bg} ${cat.color} shadow-sm border border-white group-hover:scale-110 transition-transform`}>
                       <cat.icon className="w-6 h-6" />
                     </div>
@@ -219,22 +535,38 @@ export const PatientHome: React.FC = () => {
               </div>
             </div>
 
-            {/* Upcoming Appointment */}
-            <div className="mb-8 bg-teal-800/90 rounded-[24px] p-4 flex items-center justify-between text-white shadow-lg relative overflow-hidden">
-              <div className="absolute right-0 top-0 w-32 h-32 bg-white/5 rounded-full -translate-y-1/2 translate-x-1/3"></div>
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="w-12 h-12 bg-white/20 rounded-2xl flex items-center justify-center backdrop-blur-sm border border-white/10 shrink-0">
-                  <Calendar className="w-6 h-6 text-white" />
+            {/* Appointment Track Section */}
+            <div className="mb-8 bg-white rounded-[24px] p-5 shadow-sm border border-slate-200">
+                <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-slate-900 text-lg">My Appointments</h3>
+                    <button onClick={() => setPatientTab('appointments')} className="text-teal-600 text-sm font-bold flex items-center gap-1 hover:underline">See All</button>
                 </div>
-                <div>
-                  <p className="text-[9px] text-teal-200 uppercase font-bold tracking-widest mb-1">Upcoming Appointment</p>
-                  <h4 className="font-bold text-white text-sm">Dr. Aamir Khan</h4>
-                  <p className="text-[10px] text-teal-50/80">Tuesday, August 11, 2026 • 05:00 AM</p>
+                <div className="flex flex-col gap-3">
+                    {(appointments || []).filter(a => a && (a.patientId === firebaseUser?.uid || a.patientId === userProfile?.uid)).slice(0, 3).map((apt, index) => (
+                        <motion.div 
+                          key={apt?.id || index} 
+                          initial={{ opacity: 0, x: -14 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ duration: 0.35, delay: index * 0.07, ease: [0.22, 1, 0.36, 1] }}
+                          whileHover={{ scale: 1.01, backgroundColor: '#f8fafc' }}
+                          className="flex items-center gap-3 p-3 rounded-xl border border-slate-100 bg-slate-50 transition-all cursor-pointer"
+                        >
+                             <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${apt?.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                <Calendar className="w-5 h-5" />
+                             </div>
+                             <div className="flex-1 min-w-0">
+                                 <p className="text-xs font-bold text-slate-900 truncate">{apt?.doctorName || 'Doctor Visit'}</p>
+                                 <p className="text-[10px] text-slate-500 truncate">{apt?.formattedDate || 'Scheduled'} • {apt?.timeSlot || '10:00 AM'}</p>
+                             </div>
+                             <span className={`text-[9px] font-bold px-2 py-1 rounded-full uppercase shrink-0 ${apt?.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>
+                                {apt?.status || 'CONFIRMED'}
+                             </span>
+                        </motion.div>
+                    ))}
+                    {(appointments || []).filter(a => a && (a.patientId === firebaseUser?.uid || a.patientId === userProfile?.uid)).length === 0 && (
+                        <p className="text-slate-500 text-xs text-center py-4">No appointments found.</p>
+                    )}
                 </div>
-              </div>
-              <button className="bg-teal-900/50 hover:bg-teal-900 text-white px-4 py-2 rounded-full text-xs font-bold flex items-center gap-1 transition-colors relative z-10 border border-white/10 shrink-0">
-                Pass <ChevronRight className="w-3 h-3" />
-              </button>
             </div>
 
             {/* Top Verified Doctors */}
@@ -242,16 +574,16 @@ export const PatientHome: React.FC = () => {
               <div className="flex justify-between items-end mb-5 px-1">
                 <div>
                   <h3 className="font-bold text-slate-900 text-lg">Top Verified Doctors</h3>
-                  <p className="text-slate-500 text-[11px] mt-0.5">Nearest specialists in {userProfile?.district || 'Srinagar'}</p>
+                  <p className="text-slate-500 text-[11px] mt-0.5">Nearest specialists in {userProfile?.district || 'Jammu & Kashmir'}</p>
                 </div>
-                <button className="text-teal-600 bg-teal-50/50 border border-teal-100 px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1 hover:bg-teal-50 transition-colors">
+                <button onClick={() => setPatientTab('discover')} className="text-teal-600 bg-teal-50/50 border border-teal-100 px-3 py-1.5 rounded-full text-[10px] font-bold flex items-center gap-1 hover:bg-teal-50 transition-colors">
                   <Maximize2 className="w-3 h-3" /> Full Screen View
                 </button>
               </div>
               
               <div className="flex flex-col gap-0">
-                {filteredClinics.slice(0, 3).map((clinic) => (
-                   <ClinicCard key={clinic.id} clinic={clinic} />
+                {filteredClinics.slice(0, 4).map((clinic, index) => (
+                   <ClinicCard key={clinic.id} clinic={clinic} index={index} onSelect={setSelectedClinic} />
                 ))}
               </div>
               
@@ -276,60 +608,123 @@ export const PatientHome: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <h1 className="text-xl font-bold text-slate-900">Clinics & Doctors</h1>
-                <span className="bg-teal-50 text-teal-700 px-2 py-0.5 rounded-md text-[10px] font-bold border border-teal-100">{filteredClinics.length} Clinics & Doctors</span>
+                <span className="bg-teal-50 text-teal-700 px-2.5 py-0.5 rounded-full text-[10px] font-extrabold border border-teal-100">{filteredClinics.length} Active</span>
               </div>
-              <div className="flex items-center gap-1 text-slate-500 text-xs font-medium bg-white shadow-sm px-3 py-1.5 rounded-full border border-slate-100">
-                  <MapPin className="w-3 h-3 text-rose-500" />
-                  <span>{userProfile?.district || 'Srinagar'}</span>
+              <div className="flex items-center gap-1.5 text-slate-600 text-xs font-semibold bg-white shadow-sm px-3 py-1.5 rounded-full border border-slate-200">
+                <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                <select
+                  value={selectedDistrictFilter}
+                  onChange={(e) => setSelectedDistrictFilter(e.target.value)}
+                  className="bg-transparent text-xs font-bold text-slate-800 focus:outline-none cursor-pointer pr-1"
+                >
+                  <option value="all">All J&K Districts</option>
+                  {(districts && districts.length > 0 ? districts : [
+                    { id: 'srinagar', name: 'Srinagar' },
+                    { id: 'baramulla', name: 'Baramulla' },
+                    { id: 'anantnag', name: 'Anantnag' },
+                    { id: 'budgam', name: 'Budgam' },
+                    { id: 'pulwama', name: 'Pulwama' },
+                    { id: 'jammu', name: 'Jammu' },
+                  ]).map(d => (
+                    <option key={d.id} value={d.name}>{d.name}</option>
+                  ))}
+                </select>
               </div>
             </div>
-            <p className="text-xs text-slate-500 mb-6 px-1">Find verified clinics & doctors in <strong className="text-slate-700">{userProfile?.district || 'Srinagar'}</strong></p>
+            <p className="text-xs text-slate-500 mb-4 px-1">
+              Showing verified healthcare providers in <strong className="text-slate-800">{selectedDistrictFilter === 'all' ? 'All Jammu & Kashmir' : selectedDistrictFilter}</strong>
+            </p>
             
-            <div className="relative mb-6">
+            <div className="relative mb-4">
               <Search className="w-4 h-4 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 type="text"
-                placeholder={`Search clinics, doctors in ${userProfile?.district || 'Srinagar'} (e.g. Budgam)...`}
+                placeholder="Search clinics, doctors, specializations (e.g. Cardiology, Budgam)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full pl-11 pr-4 py-3 bg-white border border-slate-200 shadow-sm rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder:text-slate-400"
+                className="w-full pl-11 pr-10 py-3 bg-white border border-slate-200 shadow-sm rounded-full text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 placeholder:text-slate-400"
               />
+              {searchQuery && (
+                <button 
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-3.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                >
+                  <XCircle className="w-4 h-4" />
+                </button>
+              )}
             </div>
 
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-4 -mx-4 px-4 pb-1">
-              {['All Categories', 'Doctors', 'Clinics', 'Hospitals', 'Diagnostics'].map(p => (
-                <button key={p} className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shadow-sm transition-colors ${p === 'All Categories' ? 'bg-[#2D8C7C] text-white border-transparent' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}>
-                    {p}
+            {/* Category Pills */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-3 -mx-4 px-4 pb-1">
+              {[
+                { id: 'all', label: 'All Providers' },
+                { id: 'clinic', label: 'Clinics' },
+                { id: 'pathology', label: 'Labs & Diagnostics' },
+                { id: 'general', label: 'General OPD' },
+                { id: 'cardiology', label: 'Cardiology' },
+              ].map(catItem => (
+                <button 
+                  key={catItem.id} 
+                  onClick={() => setActiveCategory(catItem.id)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shadow-sm transition-all ${activeCategory === catItem.id ? 'bg-[#2D8C7C] text-white border-transparent' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {catItem.label}
                 </button>
               ))}
             </div>
             
-            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 -mx-4 px-4 pb-2">
-              <button className="px-3 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white border border-slate-200 text-slate-700 flex items-center gap-1 shadow-sm hover:bg-slate-50">
-                <span className="text-amber-500">⚡</span> Available Today
+            {/* Specialty Pills */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-5 -mx-4 px-4 pb-2">
+              <button 
+                onClick={() => { setActiveCategory('all'); setSearchQuery(''); setSelectedDistrictFilter('all'); }}
+                className="px-3.5 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-teal-50 text-teal-800 border border-teal-200 flex items-center gap-1 shadow-sm hover:bg-teal-100 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3 text-teal-600" /> Reset Filters
               </button>
-              <button className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-slate-900 text-white border border-slate-900 shadow-sm">
-                All Specialties
-              </button>
-              {['Cardiologist', 'Gynecologist', 'Pediatrician', 'Neurologist'].map(p => (
-                <button key={p} className="px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap bg-white border border-slate-200 text-slate-600 shadow-sm hover:bg-slate-50">
-                    {p}
+              {[
+                { id: 'all', label: 'All Specialties' },
+                { id: 'cardiologist', label: 'Cardiologist' },
+                { id: 'gynecologist', label: 'Gynecologist' },
+                { id: 'pediatrician', label: 'Pediatrician' },
+                { id: 'neurologist', label: 'Neurologist' },
+                { id: 'dental', label: 'Dental Care' },
+                { id: 'eye', label: 'Eye Care' },
+              ].map(specItem => (
+                <button 
+                  key={specItem.id} 
+                  onClick={() => setActiveCategory(specItem.id)}
+                  className={`px-4 py-1.5 rounded-full text-xs font-bold whitespace-nowrap shadow-sm transition-all ${activeCategory === specItem.id ? 'bg-slate-900 text-white border border-slate-900' : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'}`}
+                >
+                  {specItem.label}
                 </button>
               ))}
             </div>
 
+            {/* Clinics List */}
             <div className="flex flex-col gap-0 mt-2">
               {filteredClinics.length > 0 ? (
-                filteredClinics.map((clinic) => (
-                  <ClinicCard key={clinic.id} clinic={clinic} />
+                filteredClinics.map((clinic, index) => (
+                  <ClinicCard key={clinic.id} clinic={clinic} index={index} onSelect={setSelectedClinic} />
                 ))
               ) : (
-                <div className="text-center py-12 bg-white rounded-2xl border border-slate-200">
-                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Search className="w-8 h-8 text-slate-400" />
+                <div className="text-center py-12 px-4 bg-white rounded-2xl border border-slate-200 shadow-sm">
+                  <div className="w-16 h-16 bg-slate-100 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                    <Building2 className="w-8 h-8" />
                   </div>
-                  <h3 className="font-bold text-slate-800 text-lg">No clinics found</h3>
-                  <p className="text-slate-500 text-sm mt-1">Try adjusting your filters or location.</p>
+                  <h3 className="font-bold text-slate-800 text-lg">No clinics found for this selection</h3>
+                  <p className="text-slate-500 text-xs mt-1 max-w-xs mx-auto">
+                    Try clearing search queries or switching to "All J&K Districts" to see all available medical care centers.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setSearchQuery('');
+                      setActiveCategory('all');
+                      setSelectedDistrictFilter('all');
+                    }}
+                    className="mt-4 bg-teal-600 text-white px-5 py-2.5 rounded-full text-xs font-bold shadow-md hover:bg-teal-700 transition-all inline-flex items-center gap-2"
+                  >
+                    <RefreshCw className="w-4 h-4" /> Show All J&K Clinics ({allAvailableClinics.length})
+                  </button>
                 </div>
               )}
             </div>
@@ -412,6 +807,16 @@ export const PatientHome: React.FC = () => {
                 </div>
             </div>
 
+            <div className="mb-8">
+                <h3 className="font-bold text-slate-900 text-lg mb-4 flex items-center gap-2">
+                  <div className="w-1.5 h-5 bg-amber-500 rounded-full"></div>
+                  Help & Support
+                </h3>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                  <ProfileMenuItem onClick={() => setIsFeedbackModalOpen(true)} icon={<MessageSquare />} title="Submit Feedback" subtitle="Report issues or suggest features" isLast />
+                </div>
+            </div>
+
             <button 
                 onClick={logoutUser}
                 className="w-full bg-rose-50 text-rose-600 rounded-2xl p-4 flex items-center justify-center gap-2 shadow-sm font-bold border border-rose-100 hover:bg-rose-100 transition-colors mt-8 mb-6"
@@ -455,30 +860,58 @@ export const PatientHome: React.FC = () => {
         </div>
       )}
 
-      {/* Bottom Navigation */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-6 pt-3 pb-safe-4 pb-4 flex justify-between items-center z-50">
-        <button onClick={() => setPatientTab('home')} className={`flex flex-col items-center gap-1 transition-colors ${patientTab === 'home' ? 'text-[#2D8C7C]' : 'text-slate-400 hover:text-slate-600'}`}>
-          <Home className="w-6 h-6" />
-          <span className="text-[10px] font-bold">Home</span>
-        </button>
-        <button onClick={() => setPatientTab('discover')} className={`flex flex-col items-center gap-1 transition-colors ${patientTab === 'discover' ? 'text-[#2D8C7C]' : 'text-slate-400 hover:text-slate-600'}`}>
-          <Building2 className="w-6 h-6" />
-          <span className="text-[10px] font-bold">Clinics</span>
-        </button>
-        <button onClick={() => setPatientTab('appointments')} className={`flex flex-col items-center gap-1 transition-colors ${patientTab === 'appointments' ? 'text-[#2D8C7C] relative' : 'text-slate-400 relative hover:text-slate-600'}`}>
-          <Calendar className="w-6 h-6" />
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold shadow-sm">3</span>
-          <span className="text-[10px] font-bold">Appointments</span>
-        </button>
-        <button onClick={() => setPatientTab('messages')} className={`flex flex-col items-center gap-1 transition-colors ${patientTab === 'messages' ? 'text-[#2D8C7C] relative' : 'text-slate-400 relative hover:text-slate-600'}`}>
-          <MessageSquare className="w-6 h-6" />
-          <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-rose-500 rounded-full text-[8px] text-white flex items-center justify-center font-bold shadow-sm">3</span>
-          <span className="text-[10px] font-bold">Messages</span>
-        </button>
-        <button onClick={() => setPatientTab('profile')} className={`flex flex-col items-center gap-1 transition-colors ${patientTab === 'profile' ? 'text-[#2D8C7C]' : 'text-slate-400 hover:text-slate-600'}`}>
-          <User className="w-6 h-6" />
-          <span className="text-[10px] font-bold">Profile</span>
-        </button>
+      {isFeedbackModalOpen && (
+        <FeedbackModal onClose={() => setIsFeedbackModalOpen(false)} />
+      )}
+
+      {/* Fixed Bottom Navigation Bar - Fixed in one place */}
+      <div className="fixed bottom-0 left-0 right-0 z-[90] pointer-events-none pb-2 sm:pb-4 px-3 sm:px-6">
+        <div className="pointer-events-auto max-w-lg mx-auto bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl rounded-2xl sm:rounded-3xl px-3 sm:px-5 py-2 flex justify-between items-center">
+          <button 
+            onClick={() => setPatientTab('home')} 
+            className={`flex flex-col items-center gap-1 transition-all py-1 px-2.5 sm:px-3 rounded-xl ${patientTab === 'home' ? 'text-teal-700 font-bold bg-teal-50 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <Home className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="text-[10px] font-bold tracking-tight">Home</span>
+          </button>
+
+          <button 
+            onClick={() => setPatientTab('discover')} 
+            className={`flex flex-col items-center gap-1 transition-all py-1 px-2.5 sm:px-3 rounded-xl ${patientTab === 'discover' ? 'text-teal-700 font-bold bg-teal-50 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <Building2 className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="text-[10px] font-bold tracking-tight">Clinics</span>
+          </button>
+
+          <button 
+            onClick={() => setPatientTab('appointments')} 
+            className={`flex flex-col items-center gap-1 transition-all py-1 px-2.5 sm:px-3 rounded-xl relative ${patientTab === 'appointments' ? 'text-teal-700 font-bold bg-teal-50 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <Calendar className="w-5 h-5 sm:w-6 sm:h-6" />
+            {(appointments || []).length > 0 && (
+              <span className="absolute top-0.5 right-1.5 w-4 h-4 bg-rose-500 rounded-full text-[9px] text-white flex items-center justify-center font-bold shadow-xs">
+                {(appointments || []).length}
+              </span>
+            )}
+            <span className="text-[10px] font-bold tracking-tight">Bookings</span>
+          </button>
+
+          <button 
+            onClick={() => setPatientTab('messages')} 
+            className={`flex flex-col items-center gap-1 transition-all py-1 px-2.5 sm:px-3 rounded-xl relative ${patientTab === 'messages' ? 'text-teal-700 font-bold bg-teal-50 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <MessageSquare className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="text-[10px] font-bold tracking-tight">Messages</span>
+          </button>
+
+          <button 
+            onClick={() => setPatientTab('profile')} 
+            className={`flex flex-col items-center gap-1 transition-all py-1 px-2.5 sm:px-3 rounded-xl ${patientTab === 'profile' ? 'text-teal-700 font-bold bg-teal-50 shadow-xs' : 'text-slate-500 hover:text-slate-800'}`}
+          >
+            <User className="w-5 h-5 sm:w-6 sm:h-6" />
+            <span className="text-[10px] font-bold tracking-tight">Profile</span>
+          </button>
+        </div>
       </div>
     </div>
   );

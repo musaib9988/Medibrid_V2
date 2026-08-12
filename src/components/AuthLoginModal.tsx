@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useApp } from '../context/AppContext';
 import { Mail, Lock, User, Phone, X, MapPin } from 'lucide-react';
 
@@ -8,7 +8,7 @@ export const AuthLoginModal: React.FC = () => {
   const [isLogin, setIsLogin] = useState(true);
   const [selectedRole, setSelectedRole] = useState<'user' | 'clinic_owner'>(authModalRole as 'user' | 'clinic_owner');
 
-  React.useEffect(() => {
+  useEffect(() => {
     if (isAuthModalOpen) {
       setSelectedRole(authModalRole as 'user' | 'clinic_owner');
     }

@@ -51,6 +51,7 @@ export interface Clinic {
   // Use mapping for days (monday, tuesday, etc.)
   workingHours?: Record<string, ClinicWorkingHours>;
   emergencyAvailable: boolean;
+  waitingPatients?: number;
   services: string[];
   specializations: string[];
   createdAt: string;
@@ -112,6 +113,7 @@ export interface Appointment {
   formattedDate: string; // "Tuesday, 12 August 2026"
   timeSlot: string; // "10:20 AM"
   status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled';
+  tokenNumber?: number;
   notes?: string;
   createdAt: string;
 }

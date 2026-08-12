@@ -65,7 +65,7 @@ export const ChatView: React.FC = () => {
   };
 
   if (activeChatId && activeChat) {
-    const otherName = userProfile?.role === 'clinic_owner' ? activeChat.patientName : activeChat.clinicName;
+    const otherName = (userProfile?.role === 'clinic_owner' ? activeChat.patientName : activeChat.clinicName) || 'Chat User';
     return (
       <div className="flex flex-col h-[calc(100vh-140px)] bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden animate-in slide-in-from-right-8">
         <div className="p-4 border-b border-slate-200 flex items-center gap-3 bg-slate-50">
@@ -73,7 +73,7 @@ export const ChatView: React.FC = () => {
             <ArrowLeft className="w-5 h-5 text-slate-700" />
           </button>
           <div className="w-10 h-10 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold">
-            {otherName.charAt(0)}
+            {(otherName || 'C').charAt(0)}
           </div>
           <h2 className="font-bold text-slate-800 text-lg">{otherName}</h2>
         </div>
@@ -133,8 +133,8 @@ export const ChatView: React.FC = () => {
           </div>
         ) : (
           chats.sort((a, b) => new Date(b.lastMessageTime).getTime() - new Date(a.lastMessageTime).getTime()).map(chat => {
-            const otherName = userProfile?.role === 'clinic_owner' ? chat.patientName : chat.clinicName;
-            const isUnread = !chat.readBy.includes(userProfile?.uid || '');
+            const otherName = (userProfile?.role === 'clinic_owner' ? chat.patientName : chat.clinicName) || 'Chat User';
+            const isUnread = !(chat.readBy || []).includes(userProfile?.uid || '');
             
             return (
               <div 
@@ -143,7 +143,7 @@ export const ChatView: React.FC = () => {
                 className="p-4 flex items-center gap-4 cursor-pointer hover:bg-slate-50 transition-colors"
               >
                 <div className="w-12 h-12 bg-teal-100 rounded-full flex items-center justify-center text-teal-700 font-bold flex-shrink-0">
-                  {otherName.charAt(0)}
+                  {(otherName || 'C').charAt(0)}
                 </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex justify-between items-baseline mb-1">

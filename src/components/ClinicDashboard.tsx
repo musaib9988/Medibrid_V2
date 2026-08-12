@@ -19,10 +19,51 @@ export const ClinicDashboard: React.FC = () => {
   const { 
     clinics, doctors, laboratories, appointments, firebaseUser, userProfile, 
     doctorTab, setDoctorTab, logoutUser, updateClinic, addDoctor, deleteDoctor, 
-    addLaboratory, deleteLaboratory, sendPushNotification
+    addLaboratory, deleteLaboratory, sendPushNotification, updateClinicWaitingPatients
   } = useApp();
   
   const myClinic = clinics.find(c => c.ownerId === firebaseUser?.uid);
+
+  // New Appointment Bell Chime & Toast Notification
+  const [newBookingAlert, setNewBookingAlert] = useState<string | null>(null);
+  const prevAptLength = React.useRef(appointments.length);
+
+  const playBellSound = () => {
+    try {
+      const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(880, audioCtx.currentTime); // A5
+      osc.frequency.exponentialRampToValueAtTime(1318.51, audioCtx.currentTime + 0.15); // E6
+      
+      gain.gain.setValueAtTime(0.8, audioCtx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 1.5);
+      
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      osc.start();
+      osc.stop(audioCtx.currentTime + 1.5);
+    } catch (err) {
+      console.error("Audio bell error:", err);
+    }
+  };
+
+  React.useEffect(() => {
+    if (myClinic) {
+      const myApts = appointments.filter(a => a.clinicId === myClinic.id);
+      if (myApts.length > prevAptLength.current) {
+        playBellSound();
+        const newest = myApts[myApts.length - 1];
+        if (newest) {
+          setNewBookingAlert(`🔔 New Appointment Booked by ${newest.patientName || 'Patient'}! Assigned Token #${newest.tokenNumber || 'New'}`);
+        }
+      }
+      prevAptLength.current = myApts.length;
+    }
+  }, [appointments, myClinic]);
 
   // Modals state
   const [isEditProfileOpen, setIsEditProfileOpen] = useState(false);
@@ -389,6 +430,85 @@ export const ClinicDashboard: React.FC = () => {
             </div>
           )}
         
+          {/* New Booking Alert Toast */}
+          {newBookingAlert && (
+            <div className="mb-6 p-4 bg-emerald-600 text-white rounded-2xl shadow-lg border border-emerald-500 flex items-center justify-between animate-bounce">
+              <div className="flex items-center gap-3">
+                <span className="text-xl">🔔</span>
+                <p className="font-bold text-sm">{newBookingAlert}</p>
+              </div>
+              <button 
+                onClick={() => setNewBookingAlert(null)}
+                className="text-emerald-100 hover:text-white p-1 font-bold text-xs"
+              >
+                ✕
+              </button>
+            </div>
+          )}
+
+          {/* Real-time Waitlist & OPD Queue Control Widget */}
+          <div className="bg-gradient-to-r from-teal-900 via-teal-950 to-slate-900 text-white rounded-2xl p-5 md:p-6 mb-8 shadow-md border border-teal-800/80 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></span>
+                <h3 className="font-bold text-lg text-white">Real-Time OPD Waitlist Control</h3>
+                <span className="bg-emerald-500/20 text-emerald-300 text-[10px] font-bold px-2.5 py-0.5 rounded-full border border-emerald-400/30">
+                  Reflected Live on Patient App
+                </span>
+              </div>
+              <p className="text-xs text-teal-200/80">
+                Manage how many patients are currently waiting in your OPD clinic queue and call tokens sequentially.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/15 w-full md:w-auto justify-between md:justify-start">
+              <div className="flex items-center gap-2">
+                <button 
+                  onClick={() => updateClinicWaitingPatients(myClinic.id, (myClinic.waitingPatients || 0) - 1)}
+                  disabled={(myClinic.waitingPatients || 0) <= 0}
+                  className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white font-black text-lg flex items-center justify-center transition-colors active:scale-95"
+                  title="Decrease waiting queue by 1"
+                >
+                  -
+                </button>
+                <div className="text-center px-3">
+                  <p className="text-2xl font-black text-amber-300">{myClinic.waitingPatients || 0}</p>
+                  <p className="text-[10px] text-teal-200 font-bold uppercase tracking-wider">Waiting</p>
+                </div>
+                <button 
+                  onClick={() => updateClinicWaitingPatients(myClinic.id, (myClinic.waitingPatients || 0) + 1)}
+                  className="w-10 h-10 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm"
+                  title="Increase waiting queue by 1"
+                >
+                  +
+                </button>
+              </div>
+
+              <div className="h-8 w-px bg-white/20 hidden sm:block mx-1"></div>
+
+              <button 
+                onClick={() => {
+                  if ((myClinic.waitingPatients || 0) > 0) {
+                    updateClinicWaitingPatients(myClinic.id, (myClinic.waitingPatients || 0) - 1);
+                    setNewBookingAlert(`📢 Calling Next Patient in Queue! (${(myClinic.waitingPatients || 0) - 1} patients remaining)`);
+                  }
+                }}
+                disabled={(myClinic.waitingPatients || 0) <= 0}
+                className="bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 text-slate-950 font-black px-4 py-2.5 rounded-xl text-xs shadow-md transition-all active:scale-95 flex items-center gap-2"
+              >
+                <span>Call Next Patient</span>
+              </button>
+
+              <button 
+                onClick={() => updateClinicWaitingPatients(myClinic.id, 0)}
+                className="text-[11px] font-bold text-teal-200 hover:text-white bg-white/10 px-3 py-2.5 rounded-xl transition-colors"
+                title="Reset queue to 0"
+              >
+                Clear Queue
+              </button>
+            </div>
+          </div>
+
           {/* Dashboard Metrics */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div 
@@ -450,7 +570,14 @@ export const ClinicDashboard: React.FC = () => {
                   {myAppointments.slice(0, 4).map(apt => (
                     <div key={apt.id} className="flex flex-col sm:flex-row justify-between items-start sm:items-center p-3.5 bg-slate-50 rounded-xl gap-2">
                       <div>
-                        <p className="font-bold text-sm text-slate-800">{apt.patientName}</p>
+                        <div className="flex items-center gap-2">
+                          <p className="font-bold text-sm text-slate-800">{apt.patientName}</p>
+                          {apt.tokenNumber && (
+                            <span className="bg-emerald-600 text-white text-[10px] font-black px-2 py-0.5 rounded-md shadow-sm">
+                              Token #{apt.tokenNumber}
+                            </span>
+                          )}
+                        </div>
                         <p className="text-xs text-slate-500">{apt.doctorName ? `Dr. ${apt.doctorName} • ` : ''}{apt.formattedDate || 'Today'} at {apt.timeSlot}</p>
                       </div>
                       <div className="flex items-center gap-2">
@@ -531,6 +658,11 @@ export const ClinicDashboard: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       <h4 className="font-bold text-slate-800 text-lg">{apt.patientName}</h4>
+                      {apt.tokenNumber && (
+                        <span className="bg-emerald-600 text-white text-xs font-black px-2.5 py-0.5 rounded-md shadow-sm">
+                          Token #{apt.tokenNumber}
+                        </span>
+                      )}
                       <span className={`px-2 py-0.5 text-xs font-bold rounded-md ${
                         apt.status === 'confirmed' ? 'bg-teal-100 text-teal-700' : 
                         apt.status === 'completed' ? 'bg-blue-100 text-blue-700' : 'bg-amber-100 text-amber-700'
@@ -732,7 +864,7 @@ export const ClinicDashboard: React.FC = () => {
               {myClinic.logoUrl ? (
                 <img src={myClinic.logoUrl} alt="Logo" className="w-full h-full object-cover" />
               ) : (
-                myClinic.clinicName.charAt(0)
+                (myClinic.clinicName || 'C').charAt(0)
               )}
             </div>
             <div className="flex-1">
@@ -789,32 +921,34 @@ export const ClinicDashboard: React.FC = () => {
         </div>
       )}
       
-      {/* Bottom Navigation Tabs */}
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 px-4 py-2.5 flex justify-around items-center z-50 md:hidden shadow-lg">
-        <button onClick={() => setDoctorTab('dashboard')} className={`flex flex-col items-center gap-1 ${doctorTab === 'dashboard' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}>
-          <LayoutDashboard className="w-5 h-5" />
-          <span className="text-[10px]">Dashboard</span>
-        </button>
-        <button onClick={() => setDoctorTab('appointments')} className={`flex flex-col items-center gap-1 ${doctorTab === 'appointments' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}>
-          <Calendar className="w-5 h-5" />
-          <span className="text-[10px]">Visits</span>
-        </button>
-        <button onClick={() => setDoctorTab('doctors')} className={`flex flex-col items-center gap-1 ${doctorTab === 'doctors' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}>
-          <Stethoscope className="w-5 h-5" />
-          <span className="text-[10px]">Doctors</span>
-        </button>
-        <button onClick={() => setDoctorTab('laboratories')} className={`flex flex-col items-center gap-1 ${doctorTab === 'laboratories' ? 'text-purple-600 font-bold' : 'text-slate-400'}`}>
-          <TestTube className="w-5 h-5" />
-          <span className="text-[10px]">Labs</span>
-        </button>
-        <button onClick={() => setDoctorTab('messages')} className={`flex flex-col items-center gap-1 ${doctorTab === 'messages' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}>
-          <MessageSquare className="w-5 h-5" />
-          <span className="text-[10px]">Chats</span>
-        </button>
-        <button onClick={() => setDoctorTab('profile')} className={`flex flex-col items-center gap-1 ${doctorTab === 'profile' ? 'text-teal-600 font-bold' : 'text-slate-400'}`}>
-          <User className="w-5 h-5" />
-          <span className="text-[10px]">Profile</span>
-        </button>
+      {/* Fixed Bottom Navigation Tabs - Fixed in one place */}
+      <div className="fixed bottom-0 left-0 right-0 z-[90] pointer-events-none pb-2 px-3 md:hidden">
+        <div className="pointer-events-auto max-w-lg mx-auto bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl rounded-2xl px-3 py-2 flex justify-around items-center">
+          <button onClick={() => setDoctorTab('dashboard')} className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all ${doctorTab === 'dashboard' ? 'text-teal-700 font-bold bg-teal-50' : 'text-slate-500'}`}>
+            <LayoutDashboard className="w-5 h-5" />
+            <span className="text-[10px]">Dashboard</span>
+          </button>
+          <button onClick={() => setDoctorTab('appointments')} className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all ${doctorTab === 'appointments' ? 'text-teal-700 font-bold bg-teal-50' : 'text-slate-500'}`}>
+            <Calendar className="w-5 h-5" />
+            <span className="text-[10px]">Visits</span>
+          </button>
+          <button onClick={() => setDoctorTab('doctors')} className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all ${doctorTab === 'doctors' ? 'text-teal-700 font-bold bg-teal-50' : 'text-slate-500'}`}>
+            <Stethoscope className="w-5 h-5" />
+            <span className="text-[10px]">Doctors</span>
+          </button>
+          <button onClick={() => setDoctorTab('laboratories')} className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all ${doctorTab === 'laboratories' ? 'text-purple-700 font-bold bg-purple-50' : 'text-slate-500'}`}>
+            <TestTube className="w-5 h-5" />
+            <span className="text-[10px]">Labs</span>
+          </button>
+          <button onClick={() => setDoctorTab('messages')} className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all ${doctorTab === 'messages' ? 'text-teal-700 font-bold bg-teal-50' : 'text-slate-500'}`}>
+            <MessageSquare className="w-5 h-5" />
+            <span className="text-[10px]">Chats</span>
+          </button>
+          <button onClick={() => setDoctorTab('profile')} className={`flex flex-col items-center gap-1 py-1 px-2 rounded-xl transition-all ${doctorTab === 'profile' ? 'text-teal-700 font-bold bg-teal-50' : 'text-slate-500'}`}>
+            <User className="w-5 h-5" />
+            <span className="text-[10px]">Profile</span>
+          </button>
+        </div>
       </div>
 
       {/* MODAL: EDIT CLINIC PROFILE */}
