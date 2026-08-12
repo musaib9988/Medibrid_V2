@@ -164,3 +164,10 @@ export interface Category {
   createdAt: string;
 }
 
+
+export interface District {
+  id: string;
+  name: string;
+  active: boolean;
+  createdAt?: string;
+}

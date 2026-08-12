@@ -118,7 +118,8 @@ import {
   Review,
   Banner,
   Category,
-  Chat
+  Chat,
+  District
 } from '../types';
 
 interface AppContextType {
@@ -136,6 +137,10 @@ interface AppContextType {
   reviews: Review[];
   banners: Banner[];
   categories: Category[];
+  districts: District[];
+  addDistrict: (data: Partial<District>) => Promise<void>;
+  deleteDistrict: (id: string) => Promise<void>;
+  toggleDistrictStatus: (id: string, active: boolean) => Promise<void>;
   chats: Chat[];
 
   // App UI State
@@ -163,7 +168,7 @@ interface AppContextType {
 
   // Auth Methods
   loginWithFirebaseEmail: (email: string, pass: string) => Promise<void>;
-  registerWithFirebaseEmail: (email: string, pass: string, name: string, phone: string, role: UserRole) => Promise<void>;
+  registerWithFirebaseEmail: (email: string, pass: string, name: string, phone: string, role: UserRole, district?: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   loginWithGoogle: (requestedRole?: UserRole) => Promise<void>;
   logoutUser: () => Promise<void>;
@@ -179,12 +184,17 @@ interface AppContextType {
   
   // Admin Management
   updateUserStatus: (uid: string, status: 'active' | 'blocked') => Promise<void>;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   deleteUser: (uid: string) => Promise<void>;
   deleteClinic: (clinicId: string) => Promise<void>;
   sendPushNotification: (title: string, body: string, targetRole?: UserRole | 'all') => Promise<void>;
+  sendAppNotification: (title: string, body: string, targetUserId: string, targetToken?: string) => Promise<void>;
   requestPermissions: () => Promise<void>;
-  addCategory: (name: string, icon?: string) => Promise<void>;
+  addCategory: (data: any) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  addDistrict: (data: any) => Promise<void>;
+  deleteDistrict: (id: string) => Promise<void>;
+  toggleDistrictStatus: (id: string, active: boolean) => Promise<void>;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -204,55 +214,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [banners, setBanners] = useState<Banner[]>([]);
   const [chats, setChats] = useState<Chat[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
+  const [districts, setDistricts] = useState<District[]>([]);
 
   const [patientTab, setPatientTab] = useState<'home' | 'discover' | 'appointments' | 'profile' | 'messages'>('home');
   const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners'>('dashboard');
   const [doctorTab, setDoctorTab] = useState<'dashboard' | 'doctors' | 'laboratories' | 'appointments' | 'profile' | 'messages'>('dashboard');
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
-  const [activeGoogleSpace, setActiveGoogleSpace] = useState<any | null>(null);
 
-  const startGoogleChat = async (email: string, displayName: string) => {
-    if (!googleAccessToken) {
-      console.error("No Google Access Token. Cannot start Google Chat.");
-      return;
-    }
-    try {
-      const res = await fetch('https://chat.googleapis.com/v1/spaces:setup', {
-        method: 'POST',
-        headers: {
-          Authorization: `Bearer ${googleAccessToken}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          space: {
-            spaceType: 'DIRECT_MESSAGE',
-            singleUserBotDm: false
-          },
-          memberships: [
-            {
-              member: {
-                name: `users/${email}`,
-                type: 'HUMAN'
-              }
-            }
-          ]
-        })
-      });
-      const data = await res.json();
-      if (data.error) throw new Error(data.error.message);
-      
-      setActiveGoogleSpace(data);
-      if (role === 'clinic_owner') {
-        setDoctorTab('messages');
-      } else {
-        setPatientTab('messages');
-      }
-    } catch (err: any) {
-      console.error("Failed to start Google Chat:", err);
-      alert("Failed to start Google Chat: " + err.message);
-    }
-  };
 
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
@@ -330,6 +299,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubLabs = () => {};
     let unsubBanners = () => {};
     let unsubCategories = () => {};
+    let unsubDistricts = () => {};
 
     try {
       unsubClinics = onSnapshot(collection(db, 'clinics'), (snapshot) => {
@@ -350,6 +320,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         // Silently handle if categories collection is not yet set up or permissions are propagating
         console.info("Categories collection sync notice:", error.message);
       });
+      unsubDistricts = onSnapshot(collection(db, 'districts'), (snapshot) => {
+        setDistricts(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District)));
+      }, (error) => console.error("Snapshot error details on districts:", {code: error.code, message: error.message, name: error.name}));
     } catch (error) {
       console.warn("Could not fetch realtime data. Check Firestore permissions.", error);
     }
@@ -452,7 +425,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await sendPasswordResetEmail(auth, email);
   };
 
-  const registerWithFirebaseEmail = async (email: string, pass: string, name: string, phone: string, assignedRole: UserRole) => {
+  const registerWithFirebaseEmail = async (email: string, pass: string, name: string, phone: string, assignedRole: UserRole, district?: string) => {
     const isAdminEmail = email.trim().toLowerCase() === 'malikmusaib928@gmail.com';
     const finalRole = isAdminEmail ? 'admin' : assignedRole;
     setRole(finalRole); // Optimistic UI update
@@ -462,6 +435,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       email,
       name: name || (isAdminEmail ? 'Admin Malik' : 'User'),
       phone,
+      district,
       role: finalRole,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -517,6 +491,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setUserProfile(null);
     setPatientTab('home');
     openAuthModal('user');
+  };
+
+  const updateProfile = async (data: Partial<UserProfile>) => {
+    if (!firebaseUser) throw new Error('Not authenticated');
+    await updateDoc(doc(db, 'users', firebaseUser.uid), { ...data, updatedAt: new Date().toISOString() });
   };
 
   const createClinic = async (clinicData: Omit<Clinic, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>) => {
@@ -600,6 +579,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     await deleteDoc(doc(db, 'clinics', clinicId));
   };
 
+  const sendAppNotification = async (
+    title: string, 
+    body: string, 
+    targetUserId: string, 
+    targetToken?: string
+  ) => {
+    // 1. Save In-App Notification
+    const notificationId = Date.now().toString();
+    await setDoc(doc(db, 'notifications', notificationId), {
+      id: notificationId,
+      title,
+      body,
+      targetUserId,
+      createdAt: new Date().toISOString(),
+      read: false
+    });
+
+    // 2. If target token, send Push
+    if (targetToken) {
+        try {
+          await fetch('/api/send-notification', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ title, body, tokens: [targetToken] })
+          });
+        } catch (err) {
+          console.error("FCM Backend Proxy Error:", err);
+        }
+    }
+  };
+
   const sendPushNotification = async (title: string, body: string, targetRole: UserRole | 'all' = 'all') => {
     if (userProfile?.role !== 'admin') return;
     
@@ -660,6 +670,37 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     });
   };
 
+  const addDistrict = async (data: Partial<District>) => {
+    if (!data.name) return;
+    try {
+      const id = Date.now().toString();
+      await setDoc(doc(db, 'districts', id), {
+        id,
+        name: data.name,
+        active: true,
+        createdAt: new Date().toISOString()
+      });
+    } catch (error) {
+      console.error("Error adding district:", error);
+    }
+  };
+
+  const deleteDistrict = async (id: string) => {
+    try {
+      await deleteDoc(doc(db, 'districts', id));
+    } catch (error) {
+      console.error("Error deleting district:", error);
+    }
+  };
+
+  const toggleDistrictStatus = async (id: string, active: boolean) => {
+    try {
+      await setDoc(doc(db, 'districts', id), { active }, { merge: true });
+    } catch (error) {
+      console.error("Error toggling district status:", error);
+    }
+  };
+
   const deleteCategory = async (id: string) => {
     if (userProfile?.role !== 'admin') return;
     await deleteDoc(doc(db, 'categories', id));
@@ -668,19 +709,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   return (
     <AppContext.Provider value={{
       role, firebaseUser, userProfile, googleAccessToken,
-      users, clinics, doctors, laboratories, appointments, reviews, banners, categories, chats,
+      users, clinics, doctors, laboratories, appointments, reviews, banners, categories, chats, districts,
       patientTab, setPatientTab,
       adminTab, setAdminTab,
       doctorTab, setDoctorTab,
       activeChatId, setActiveChatId,
-      activeGoogleSpace, setActiveGoogleSpace, startGoogleChat,
       selectedClinic, setSelectedClinic,
       isAuthModalOpen, authModalRole, openAuthModal, closeAuthModal,
       isWelcomeModalOpen, setIsWelcomeModalOpen,
       loginWithFirebaseEmail, registerWithFirebaseEmail, resetPassword, loginWithGoogle, logoutUser,
       createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking,
-      updateUserStatus, deleteUser, deleteClinic, sendPushNotification, requestPermissions,
-      addCategory, deleteCategory
+      updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
+      addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus
     }}>
       {children}
     </AppContext.Provider>

@@ -8,6 +8,10 @@ service cloud.firestore {
              get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
+    match /districts/{districtId} {
+      allow read, write: if true;
+    }
+
     match /users/{userId} {
       allow read: if true; // Allow all to read users to prevent snapshot errors during auth transitions
       allow write: if isSignedIn();
@@ -29,6 +33,10 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    match /notifications/{notificationId} {
+      allow read, write: if isSignedIn();
+    }
+    
     match /appointments/{appointmentId} {
       allow read, write: if isSignedIn();
     }

@@ -32,7 +32,8 @@ export const MediBot: React.FC = () => {
     if (!input.trim() || isLoading) return;
 
     const userMsg: Message = { role: 'user', parts: [{ text: input }] };
-    setMessages((prev) => [...prev, userMsg]);
+    const newMessages = [...messages, userMsg];
+    setMessages(newMessages);
     setInput('');
     setIsLoading(true);
 
@@ -43,7 +44,7 @@ export const MediBot: React.FC = () => {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          messages: [...messages, userMsg],
+          messages: newMessages,
         }),
       });
 

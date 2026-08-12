@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
-import { Mail, Lock, User, Phone, X } from 'lucide-react';
+import { Mail, Lock, User, Phone, X, MapPin } from 'lucide-react';
 
 export const AuthLoginModal: React.FC = () => {
   const { isAuthModalOpen, authModalRole, closeAuthModal, loginWithFirebaseEmail, registerWithFirebaseEmail, loginWithGoogle, resetPassword } = useApp();
@@ -21,6 +21,7 @@ export const AuthLoginModal: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
+  const [district, setDistrict] = useState('');
   const [error, setError] = useState('');
 
   if (!isAuthModalOpen) return null;
@@ -44,7 +45,7 @@ export const AuthLoginModal: React.FC = () => {
           setError('Passwords do not match');
           return;
         }
-        await registerWithFirebaseEmail(email, password, name, phone, selectedRole);
+        await registerWithFirebaseEmail(email, password, name, phone, selectedRole, district);
       }
     } catch (err: any) {
       setError(err.message || 'An error occurred during authentication.');
@@ -135,6 +136,17 @@ export const AuthLoginModal: React.FC = () => {
                   required
                   value={phone}
                   onChange={(e) => setPhone(e.target.value)}
+                  className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 text-sm"
+                />
+              </div>
+              <div className="relative">
+                <MapPin className="w-5 h-5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                <input 
+                  type="text" 
+                  placeholder="Your District (e.g. Srinagar)"
+                  required={selectedRole === 'user'}
+                  value={district}
+                  onChange={(e) => setDistrict(e.target.value)}
                   className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:border-teal-500 text-sm"
                 />
               </div>

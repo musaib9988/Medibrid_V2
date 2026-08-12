@@ -6,7 +6,7 @@ import { db } from '../firebase';
 import { LocationMap } from './LocationMap';
 
 export const ClinicProfileView: React.FC = () => {
-  const { selectedClinic, setSelectedClinic, doctors, laboratories, userProfile, setPatientTab, setActiveChatId, openAuthModal, startGoogleChat } = useApp();
+  const { selectedClinic, setSelectedClinic, doctors, laboratories, userProfile, setPatientTab, setActiveChatId, openAuthModal } = useApp();
   const [isStartingChat, setIsStartingChat] = useState(false);
 
   if (!selectedClinic) return null;
@@ -99,20 +99,6 @@ export const ClinicProfileView: React.FC = () => {
               >
                 <MessageSquare className="w-5 h-5" />
                 {isStartingChat ? 'Opening...' : 'App Chat'}
-              </button>
-              
-              <button 
-                onClick={() => {
-                  if (!userProfile) {
-                    openAuthModal('user');
-                    return;
-                  }
-                  startGoogleChat(selectedClinic.email, selectedClinic.clinicName);
-                }}
-                className="w-full md:w-auto bg-white text-blue-600 border border-blue-200 px-6 py-3 rounded-xl font-bold hover:bg-blue-50 shadow-sm flex justify-center items-center gap-2"
-              >
-                <MessageSquare className="w-5 h-5" />
-                Google Chat
               </button>
 
               <button className="w-full md:w-auto bg-teal-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-teal-700 shadow-md">

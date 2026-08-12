@@ -1,7 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 
 async function startServer() {
   const app = express();
@@ -10,13 +10,13 @@ async function startServer() {
   app.use(express.json());
 
   // Initialize Gemini API (Lazy)
-  let ai: GoogleGenAI | null = null;
+  let ai: GoogleGenerativeAI | null = null;
   const getAiClient = () => {
     if (!ai) {
       if (!process.env.GEMINI_API_KEY) {
         throw new Error("GEMINI_API_KEY environment variable is missing.");
       }
-      ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+      ai = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
     }
     return ai;
   };
@@ -31,8 +31,8 @@ async function startServer() {
         return res.status(400).json({ error: "Invalid messages array" });
       }
 
-      // Convert frontend messages format to Google GenAI format if needed
-      // Currently using a simple chat session approach
+      console.log("MediBot received messages:", JSON.stringify(messages, null, 2));
+
       const systemInstruction = `You are MediBot, a helpful AI healthcare assistant for MediBrid. 
       Your purpose is to help users check medicine usage, benefits, and timing, and provide general advice and possible cures for simple symptoms like fever, cold, etc.
       Important Rules:
@@ -41,19 +41,28 @@ async function startServer() {
       3. For any symptoms provided by the user, provide general information and possible remedies, but ALWAYS include a disclaimer stating you are an AI and they should consult a real doctor or visit a clinic for serious conditions.
       4. Suggest that they can use the MediBrid platform to find doctors and clinics near them.`;
 
-      const response = await aiClient.models.generateContent({
-        model: 'gemini-3.6-flash',
-        contents: messages,
-        config: {
-          systemInstruction: systemInstruction,
-          temperature: 0.7,
-        }
+      // Use generateContent with the correct chat history format
+      const model = aiClient.getGenerativeModel({ 
+        model: 'gemini-1.5-flash',
+        systemInstruction: systemInstruction,
       });
 
-      res.json({ text: response.text });
+      // Prepare chat history
+      const history = messages.slice(0, -1).map(msg => ({
+        role: msg.role === 'user' ? 'user' : 'model',
+        parts: msg.parts,
+      }));
+      
+      const chat = model.startChat({ history });
+      const result = await chat.sendMessage(messages[messages.length - 1].parts[0].text);
+      const responseText = result.response.text();
+
+      console.log("MediBot response:", responseText);
+
+      res.json({ text: responseText });
     } catch (error: any) {
       console.error("MediBot error:", error);
-      res.status(500).json({ error: "Failed to process request." });
+      res.status(500).json({ error: error.message || "Failed to process request." });
     }
   });
 

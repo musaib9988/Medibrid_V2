@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { AppProvider, useApp } from './context/AppContext';
 import { PatientHome } from './components/PatientHome';
 import { ClinicDashboard } from './components/ClinicDashboard';
@@ -6,9 +6,20 @@ import { AdminPanel } from './components/AdminPanel';
 import { AuthLoginModal } from './components/AuthLoginModal';
 import { WelcomeRoleModal } from './components/WelcomeRoleModal';
 import { MediBot } from './components/MediBot';
+import { SplashScreen } from './components/SplashScreen';
 
 const AppBodyContent: React.FC = () => {
-  const { role, firebaseUser } = useApp();
+  const { role, firebaseUser, requestPermissions } = useApp();
+  const [showSplash, setShowSplash] = useState(true);
+
+  useEffect(() => {
+    // Auto-fetch location/permissions
+    requestPermissions();
+  }, [requestPermissions]);
+
+  if (showSplash) {
+    return <SplashScreen onFinish={() => setShowSplash(false)} />;
+  }
 
   if (!firebaseUser) {
     return <PatientHome />; // Public discovery view

@@ -19,7 +19,7 @@ export const ClinicDashboard: React.FC = () => {
   const { 
     clinics, doctors, laboratories, appointments, firebaseUser, userProfile, 
     doctorTab, setDoctorTab, logoutUser, updateClinic, addDoctor, deleteDoctor, 
-    addLaboratory, deleteLaboratory 
+    addLaboratory, deleteLaboratory, sendPushNotification
   } = useApp();
   
   const myClinic = clinics.find(c => c.ownerId === firebaseUser?.uid);
@@ -332,6 +332,12 @@ export const ClinicDashboard: React.FC = () => {
               className="flex items-center gap-2 bg-slate-900 text-white px-5 py-2.5 rounded-xl font-bold hover:bg-slate-800 transition-colors shadow-sm text-sm"
             >
               <Edit2 className="w-4 h-4" /> Edit Clinic Profile
+            </button>
+            <button 
+              onClick={logoutUser}
+              className="flex items-center gap-2 bg-rose-50 text-rose-600 px-5 py-2.5 rounded-xl font-bold hover:bg-rose-100 transition-colors shadow-sm border border-rose-100 text-sm"
+            >
+              <LogOut className="w-4 h-4" /> Log Out
             </button>
           </div>
 
@@ -980,7 +986,18 @@ export const ClinicDashboard: React.FC = () => {
                     />
                   </div>
                   <div>
-                    <label className="block text-xs font-bold text-slate-700 mb-1">State / District *</label>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">District *</label>
+                    <input 
+                      type="text" 
+                      value={editData.district} 
+                      onChange={e => setEditData({...editData, district: e.target.value})} 
+                      className="w-full p-3 bg-slate-50 border border-slate-200 rounded-xl text-sm" 
+                      placeholder="e.g. Srinagar"
+                      required 
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-bold text-slate-700 mb-1">State *</label>
                     <input 
                       type="text" 
                       value={editData.state} 
