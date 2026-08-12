@@ -7,6 +7,7 @@ import { AuthLoginModal } from './components/AuthLoginModal';
 import { WelcomeRoleModal } from './components/WelcomeRoleModal';
 import { MediBot } from './components/MediBot';
 import { SplashScreen } from './components/SplashScreen';
+import { NotificationToast } from './components/NotificationToast';
 
 const AppBodyContent: React.FC = () => {
   const { role, firebaseUser, requestPermissions } = useApp();
@@ -37,10 +38,14 @@ const AppBodyContent: React.FC = () => {
 };
 
 const MainLayout: React.FC = () => {
-  const { role } = useApp();
+  const { role, activeNotificationToast, dismissNotificationToast } = useApp();
 
   return (
     <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-teal-500/20 selection:text-teal-900">
+      <NotificationToast
+        notification={activeNotificationToast}
+        onClose={dismissNotificationToast}
+      />
       <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5 pb-20 sm:pb-12">
         <AppBodyContent />
       </main>

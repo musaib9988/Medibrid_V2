@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { useApp } from '../context/AppContext';
 import { db, storage, auth } from '../firebase';
 import { collection, addDoc, doc, setDoc, updateDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { uploadFileWithFallback } from '../utils/imageCompressor';
 import { Building2, MapPin, Clock, Stethoscope, Users, TestTube, ShieldCheck, UploadCloud, ChevronRight, ChevronLeft, Check, Plus, Trash2, X } from 'lucide-react';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
@@ -43,9 +43,7 @@ export const ClinicOnboarding: React.FC = () => {
   });
 
   const handleUploadImage = async (file: File, path: string) => {
-    const storageRef = ref(storage, path);
-    await uploadBytes(storageRef, file);
-    return await getDownloadURL(storageRef);
+    return await uploadFileWithFallback(file, path);
   };
 
   const submitClinicData = async () => {

@@ -8,10 +8,7 @@ import {
   MapPin, Clock, Building2, Check, Phone, Mail, Sparkles 
 } from 'lucide-react';
 import { MessagesTab } from './MessagesTab';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
-import { storage } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { uploadFileWithFallback } from '../utils/imageCompressor';
 
 const DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
@@ -19,7 +16,7 @@ export const ClinicDashboard: React.FC = () => {
   const { 
     clinics, doctors, laboratories, appointments, firebaseUser, userProfile, 
     doctorTab, setDoctorTab, logoutUser, updateClinic, addDoctor, deleteDoctor, 
-    addLaboratory, deleteLaboratory, sendPushNotification, updateClinicWaitingPatients
+    addLaboratory, deleteLaboratory, sendPushNotification, updateClinicWaitingPatients, updateAppointmentStatus
   } = useApp();
   
   const myClinic = clinics.find(c => c.ownerId === firebaseUser?.uid);
@@ -187,18 +184,7 @@ export const ClinicDashboard: React.FC = () => {
   };
 
   const uploadFileHelper = async (file: File, path: string) => {
-    try {
-      const storageRef = ref(storage, path);
-      await uploadBytes(storageRef, file);
-      return await getDownloadURL(storageRef);
-    } catch (e) {
-      // Fallback to base64 data URL if storage upload fails
-      return new Promise<string>((resolve) => {
-        const reader = new FileReader();
-        reader.onloadend = () => resolve(reader.result as string);
-        reader.readAsDataURL(file);
-      });
-    }
+    return await uploadFileWithFallback(file, path);
   };
 
   const handleSaveProfile = async (e: React.FormEvent) => {
@@ -339,7 +325,7 @@ export const ClinicDashboard: React.FC = () => {
 
   const handleUpdateAppointmentStatus = async (aptId: string, newStatus: 'confirmed' | 'cancelled' | 'completed') => {
     try {
-      await updateDoc(doc(db, 'appointments', aptId), { status: newStatus });
+      await updateAppointmentStatus(aptId, newStatus);
     } catch (e) {
       console.error("Failed to update appointment status:", e);
     }

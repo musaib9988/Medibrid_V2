@@ -6,12 +6,13 @@ import {
   Home, Compass, Calendar, User, Map as MapIcon, MessageSquare, LogOut, Grid, 
   Bell, Maximize2, ChevronRight, QrCode, FileText, Receipt, RefreshCw, XCircle, 
   Shield, FileCheck, Tag, Share2, ShieldCheck, RotateCcw, Brain, Eye, Activity, Truck,
-  Clock, Timer, Users
+  Clock, Timer, Users, X
 } from 'lucide-react';
 import { ClinicProfileView } from './ClinicProfileView';
 import { MessagesTab } from './MessagesTab';
 import { ProfileEditForm } from './ProfileEditForm';
 import { FeedbackModal } from './FeedbackModal';
+import { UnserviceableLocationView } from './UnserviceableLocationView';
 
 const DEFAULT_FALLBACK_CLINICS: any[] = [];
 
@@ -59,9 +60,13 @@ const ClinicCard: React.FC<{ clinic: any; index?: number; onSelect: (clinic: any
       <div className="flex-1">
          <h3 className="font-bold text-slate-900 text-sm">{clinic.clinicName}</h3>
          <p className="text-xs text-slate-500 mb-1 line-clamp-1">{clinic.specializations?.join(', ') || 'Multi-Specialty Care'}</p>
-         <div className="flex items-center gap-2 text-[10px] text-teal-700 font-bold mb-2">
+         <div className="flex flex-wrap items-center gap-2 text-[10px] text-teal-700 font-bold mb-2">
            <span className="bg-teal-50 px-2 py-0.5 rounded flex items-center gap-1"><MapPin className="w-3 h-3" /> 2.1 km</span>
            <span className="text-slate-500 font-medium">{clinic.district || clinic.city || 'Srinagar'}</span>
+           <span className="bg-amber-50 text-amber-800 border border-amber-200/80 px-2 py-0.5 rounded flex items-center gap-1 ml-auto">
+             <Users className="w-3 h-3 text-amber-600 animate-pulse" />
+             <span>{clinic.waitingPatients || 0} Waiting</span>
+           </span>
          </div>
          <div className="flex items-center gap-3 text-xs">
            <span className="flex items-center gap-1 text-amber-500 font-bold"><Star className="w-3.5 h-3.5 fill-current" /> {clinic.rating || 4.9} <span className="text-slate-400 font-medium">({clinic.reviewCount || 210})</span></span>
@@ -198,7 +203,7 @@ function getAppointmentTargetDate(dateStr?: string, timeSlotStr?: string): Date 
 }
 
 export const PatientHome: React.FC = () => {
-  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, updateAppointmentStatus, appointments = [] } = useApp();
+  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, updateAppointmentStatus, openAuthModal, appointments = [] } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
@@ -206,6 +211,8 @@ export const PatientHome: React.FC = () => {
   const [dismissedPrompt, setDismissedPrompt] = useState(false);
   const [activeProfileModal, setActiveProfileModal] = useState<{title: string, subtitle?: string} | null>(null);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
+  const [customLocationInput, setCustomLocationInput] = useState('');
   const [upcoming1HourAlert, setUpcoming1HourAlert] = useState<{
     appointment: any;
     minutesLeft: number;
@@ -290,6 +297,44 @@ export const PatientHome: React.FC = () => {
   const fullName = userProfile?.name || 'User';
 
   const [selectedDistrictFilter, setSelectedDistrictFilter] = useState<string>('all');
+
+  // Live districts where operational clinics currently exist
+  const liveDistricts = useMemo(() => {
+    const set = new Set<string>();
+    (clinics || []).forEach(c => {
+      if (c && c.status !== 'inactive' && c.status !== 'rejected' && c.status !== 'suspended') {
+        if (c.district && c.district.trim()) {
+          set.add(c.district.trim());
+        }
+        if (c.city && c.city.trim()) {
+          set.add(c.city.trim());
+        }
+      }
+    });
+    const arr = Array.from(set);
+    if (arr.length === 0) {
+      return ['Shopian', 'Srinagar', 'Budgam'];
+    }
+    return arr;
+  }, [clinics]);
+
+  // Current active location name
+  const activeLocationName = useMemo(() => {
+    if (selectedDistrictFilter && selectedDistrictFilter !== 'all') {
+      return selectedDistrictFilter;
+    }
+    return userProfile?.district || 'Pulwama 192303';
+  }, [selectedDistrictFilter, userProfile?.district]);
+
+  // Check if current active location is operational
+  const isLocationServiceable = useMemo(() => {
+    if (selectedDistrictFilter === 'all' && !userProfile?.district) return true;
+    const target = activeLocationName.toLowerCase().trim();
+    return liveDistricts.some(ld => {
+      const live = ld.toLowerCase().trim();
+      return target === live || target.includes(live) || live.includes(target);
+    });
+  }, [activeLocationName, liveDistricts, selectedDistrictFilter, userProfile?.district]);
 
   const allAvailableClinics = useMemo(() => {
     const map = new Map<string, any>();
@@ -396,10 +441,14 @@ export const PatientHome: React.FC = () => {
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className="flex items-center gap-1 bg-teal-50 text-teal-700 px-3 py-1.5 rounded-full text-xs font-bold border border-teal-100">
-                  <MapPin className="w-3.5 h-3.5" />
-                  {userProfile?.district || 'Detecting...'}
-                </div>
+                <button
+                  onClick={() => setIsLocationPickerOpen(true)}
+                  className="flex items-center gap-1.5 bg-teal-50 hover:bg-teal-100/80 text-teal-700 px-3 py-1.5 rounded-full text-xs font-bold border border-teal-100 transition-colors cursor-pointer shadow-2xs"
+                  title="Click to change location"
+                >
+                  <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
+                  <span>{activeLocationName}</span>
+                </button>
                 <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 relative shadow-sm">
                   <Bell className="w-5 h-5" />
                   {upcoming1HourAlert && (
@@ -480,67 +529,76 @@ export const PatientHome: React.FC = () => {
               )}
             </AnimatePresence>
 
-            {/* Top OPD Active Token & Live Queue Popup Card */}
-            {(() => {
-              if (!displayAppointment) return null;
-              const aptClinic = clinics.find(c => c.id === displayAppointment.clinicId);
-              const waitingCount = aptClinic?.waitingPatients || 0;
-              const projectedWaitMins = waitingCount * 10;
+            {!isLocationServiceable ? (
+              <UnserviceableLocationView 
+                currentDistrict={activeLocationName}
+                liveDistricts={liveDistricts}
+                onChangeLocationClick={() => setIsLocationPickerOpen(true)}
+                onRegisterClick={() => openAuthModal('clinic')}
+              />
+            ) : (
+              <>
+                {/* Top OPD Active Token & Live Queue Popup Card */}
+                {(() => {
+                  if (!displayAppointment) return null;
+                  const aptClinic = clinics.find(c => c.id === displayAppointment.clinicId);
+                  const waitingCount = aptClinic?.waitingPatients || 0;
+                  const projectedWaitMins = waitingCount * 10;
 
-              return (
-                <motion.div 
-                  initial={{ opacity: 0, y: -10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mb-8 bg-gradient-to-br from-teal-900 via-slate-900 to-teal-950 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden border border-teal-700/60"
-                >
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="flex items-center gap-2">
-                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
-                      <span className="text-[10px] text-teal-300 uppercase font-extrabold tracking-widest">Active OPD Token Status</span>
-                    </div>
-                    <span className="text-xs bg-emerald-400 text-slate-950 font-black px-3 py-1 rounded-full shadow-sm">
-                      Token #{displayAppointment.tokenNumber || '—'}
-                    </span>
-                  </div>
-
-                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
-                    <div>
-                      <h4 className="font-bold text-white text-base leading-tight">
-                        {displayAppointment.doctorName || 'OPD Doctor Consultation'}
-                      </h4>
-                      <p className="text-xs text-teal-100 mt-0.5">
-                        {aptClinic?.clinicName || displayAppointment.clinicName || 'Clinic'} • Slot: {displayAppointment.timeSlot || '10:00 AM'}
-                      </p>
-                    </div>
-
-                    <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 w-full sm:w-auto justify-around">
-                      <div className="text-center px-2">
-                        <p className="text-xl font-black text-amber-300">{waitingCount}</p>
-                        <p className="text-[9px] text-teal-200 uppercase font-bold">Ahead in Line</p>
-                      </div>
-                      <div className="h-6 w-px bg-white/20"></div>
-                      <div className="text-center px-2">
-                        <p className="text-xl font-black text-emerald-300">~{projectedWaitMins} Mins</p>
-                        <p className="text-[9px] text-teal-200 uppercase font-bold">Projected Wait</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
-                    <p className="text-[11px] text-teal-200/90 font-medium">
-                      Live status updates will notify you automatically when queue advances.
-                    </p>
-                    <button 
-                      onClick={() => setActiveProfileModal({ title: "QR Code Patient Pass", subtitle: `Pass for ${displayAppointment.doctorName || 'Doctor'}` })}
-                      className="bg-white/15 hover:bg-white/25 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all backdrop-blur-md border border-white/20 shrink-0"
+                  return (
+                    <motion.div 
+                      initial={{ opacity: 0, y: -10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="mb-8 bg-gradient-to-br from-teal-900 via-slate-900 to-teal-950 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden border border-teal-700/60"
                     >
-                      <QrCode className="w-3.5 h-3.5 text-teal-200" />
-                      <span>Digital Ticket</span>
-                    </button>
-                  </div>
-                </motion.div>
-              );
-            })()}
+                      <div className="flex items-center justify-between mb-3">
+                        <div className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                          <span className="text-[10px] text-teal-300 uppercase font-extrabold tracking-widest">Active OPD Token Status</span>
+                        </div>
+                        <span className="text-xs bg-emerald-400 text-slate-950 font-black px-3 py-1 rounded-full shadow-sm">
+                          Token #{displayAppointment.tokenNumber || '—'}
+                        </span>
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                        <div>
+                          <h4 className="font-bold text-white text-base leading-tight">
+                            {displayAppointment.doctorName || 'OPD Doctor Consultation'}
+                          </h4>
+                          <p className="text-xs text-teal-100 mt-0.5">
+                            {aptClinic?.clinicName || displayAppointment.clinicName || 'Clinic'} • Slot: {displayAppointment.timeSlot || '10:00 AM'}
+                          </p>
+                        </div>
+
+                        <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 w-full sm:w-auto justify-around">
+                          <div className="text-center px-2">
+                            <p className="text-xl font-black text-amber-300">{waitingCount}</p>
+                            <p className="text-[9px] text-teal-200 uppercase font-bold">Ahead in Line</p>
+                          </div>
+                          <div className="h-6 w-px bg-white/20"></div>
+                          <div className="text-center px-2">
+                            <p className="text-xl font-black text-emerald-300">~{projectedWaitMins} Mins</p>
+                            <p className="text-[9px] text-teal-200 uppercase font-bold">Projected Wait</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                        <p className="text-[11px] text-teal-200/90 font-medium">
+                          Live status updates will notify you automatically when queue advances.
+                        </p>
+                        <button 
+                          onClick={() => setActiveProfileModal({ title: "QR Code Patient Pass", subtitle: `Pass for ${displayAppointment.doctorName || 'Doctor'}` })}
+                          className="bg-white/15 hover:bg-white/25 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all backdrop-blur-md border border-white/20 shrink-0"
+                        >
+                          <QrCode className="w-3.5 h-3.5 text-teal-200" />
+                          <span>Digital Ticket</span>
+                        </button>
+                      </div>
+                    </motion.div>
+                  );
+                })()}
 
             {/* Hero Banners */}
             <div className="mb-8">
@@ -663,8 +721,10 @@ export const PatientHome: React.FC = () => {
                 <ChevronRight className="w-5 h-5 text-slate-400 shrink-0" />
               </button>
             </div>
-          </div>
+          </>
         )}
+      </div>
+    )}
 
         {patientTab === 'discover' && (
           <div className="animate-in fade-in pb-4">
@@ -1077,6 +1137,118 @@ export const PatientHome: React.FC = () => {
 
       {isFeedbackModalOpen && (
         <FeedbackModal onClose={() => setIsFeedbackModalOpen(false)} />
+      )}
+
+      {/* Location Picker Modal */}
+      {isLocationPickerOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-[110] flex items-center justify-center p-4 animate-in fade-in">
+          <motion.div 
+            initial={{ scale: 0.95, opacity: 0, y: 10 }}
+            animate={{ scale: 1, opacity: 1, y: 0 }}
+            exit={{ scale: 0.95, opacity: 0, y: 10 }}
+            className="bg-white rounded-3xl p-6 w-full max-w-md shadow-2xl border border-slate-100 max-h-[85vh] overflow-y-auto"
+          >
+            <div className="flex items-center justify-between mb-4 pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-full bg-rose-50 border border-rose-100 text-rose-500 flex items-center justify-center shrink-0">
+                  <MapPin className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900 leading-tight">Select Location / District</h3>
+                  <p className="text-[11px] text-slate-500">Pick area to check doctor & clinic availability</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setIsLocationPickerOpen(false)}
+                className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Custom Location Search */}
+            <div className="mb-5">
+              <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5 block">
+                Search or Enter District / Pincode
+              </label>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3" />
+                <input 
+                  type="text" 
+                  value={customLocationInput}
+                  onChange={(e) => setCustomLocationInput(e.target.value)}
+                  placeholder="Type district or area (e.g., Pulwama 192303)..."
+                  className="w-full bg-slate-50 border border-slate-200 rounded-2xl pl-10 pr-4 py-2.5 text-xs font-semibold text-slate-800 focus:outline-none focus:border-teal-500 focus:bg-white transition-all"
+                />
+              </div>
+              {customLocationInput.trim() && (
+                <button
+                  onClick={() => {
+                    setSelectedDistrictFilter(customLocationInput.trim());
+                    setIsLocationPickerOpen(false);
+                    setCustomLocationInput('');
+                  }}
+                  className="mt-2 w-full bg-teal-600 hover:bg-teal-700 text-white rounded-xl py-2.5 text-xs font-bold transition-colors shadow-sm"
+                >
+                  Set Location to "{customLocationInput.trim()}"
+                </button>
+              )}
+            </div>
+
+            {/* Live Operational Districts */}
+            <div className="mb-5">
+              <div className="flex items-center gap-1.5 text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider mb-2">
+                <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping"></span>
+                <span>Live Supported Areas ({liveDistricts.length})</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {liveDistricts.map(d => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      setSelectedDistrictFilter(d);
+                      setIsLocationPickerOpen(false);
+                    }}
+                    className={`p-3 rounded-2xl border text-left transition-all flex items-center justify-between ${
+                      activeLocationName.toLowerCase().includes(d.toLowerCase())
+                        ? 'bg-emerald-50 border-emerald-300 text-emerald-950 font-extrabold shadow-2xs'
+                        : 'bg-white border-slate-200/90 text-slate-800 hover:bg-slate-50 font-bold'
+                    }`}
+                  >
+                    <span className="truncate text-xs">{d}</span>
+                    <span className="text-[9px] bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full font-black shrink-0">Live</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Other Districts (Expanding Soon) */}
+            <div>
+              <div className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-2">
+                Other J&K Districts (Expanding Soon)
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                {['Pulwama', 'Anantnag', 'Baramulla', 'Ganderbal', 'Kulgam', 'Kupwara', 'Jammu', 'Rajouri', 'Udhampur'].filter(d => !liveDistricts.some(ld => ld.toLowerCase() === d.toLowerCase())).map(d => (
+                  <button
+                    key={d}
+                    onClick={() => {
+                      setSelectedDistrictFilter(d);
+                      setIsLocationPickerOpen(false);
+                    }}
+                    className={`p-3 rounded-2xl border text-left transition-all ${
+                      activeLocationName.toLowerCase().includes(d.toLowerCase())
+                        ? 'bg-rose-50 border-rose-200 text-rose-950 font-extrabold'
+                        : 'bg-slate-50/70 border-slate-200/70 text-slate-600 hover:bg-slate-100/80 font-semibold'
+                    }`}
+                  >
+                    <div className="truncate text-xs">{d}</div>
+                    <div className="text-[9px] text-slate-400 font-medium mt-0.5">Expanding soon</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          </motion.div>
+        </div>
       )}
 
       {/* Fixed Bottom Navigation Bar - Fixed in one place */}

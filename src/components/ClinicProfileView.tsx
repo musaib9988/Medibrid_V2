@@ -1,23 +1,26 @@
 import React, { useState } from 'react';
-import { useApp } from '../context/AppContext';
+import { useApp, safeGetDoc } from '../context/AppContext';
 import { 
   MapPin, Star, Stethoscope, TestTube, ArrowLeft, Clock, Activity, Building2, 
   MessageSquare, Calendar, CheckCircle2, X, User, Phone, FileText, ChevronRight, QrCode, Users
 } from 'lucide-react';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { LocationMap } from './LocationMap';
 import { Doctor } from '../types';
 
 export const ClinicProfileView: React.FC = () => {
   const { 
-    selectedClinic, setSelectedClinic, doctors, laboratories, appointments, userProfile, 
+    selectedClinic, setSelectedClinic, clinics, doctors, laboratories, appointments, userProfile, 
     firebaseUser, setPatientTab, setActiveChatId, openAuthModal, createBooking 
   } = useApp();
 
   const [isStartingChat, setIsStartingChat] = useState(false);
   const [isBookingModalOpen, setIsBookingModalOpen] = useState(false);
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
+
+  // Derive liveClinic to reactively listen to real-time Firestore queue updates
+  const liveClinic = (clinics || []).find(c => c.id === selectedClinic?.id) || selectedClinic;
 
   // Booking Form State
   const todayStr = new Date().toISOString().split('T')[0];
@@ -31,10 +34,10 @@ export const ClinicProfileView: React.FC = () => {
   const [bookingError, setBookingError] = useState('');
   const [bookingSuccess, setBookingSuccess] = useState<any | null>(null);
 
-  if (!selectedClinic) return null;
+  if (!liveClinic) return null;
 
-  const clinicDoctors = doctors.filter(d => d.clinicId === selectedClinic.id);
-  const clinicLabs = laboratories.filter(l => l.clinicId === selectedClinic.id);
+  const clinicDoctors = doctors.filter(d => d.clinicId === liveClinic.id);
+  const clinicLabs = laboratories.filter(l => l.clinicId === liveClinic.id);
 
   const handleStartChat = async () => {
     if (!firebaseUser) {
@@ -43,20 +46,20 @@ export const ClinicProfileView: React.FC = () => {
     }
     setIsStartingChat(true);
     try {
-      const chatId = `${firebaseUser.uid}_${selectedClinic.id}`;
+      const chatId = `${firebaseUser.uid}_${liveClinic.id}`;
       const chatRef = doc(db, 'chats', chatId);
-      const chatDoc = await getDoc(chatRef);
+      const chatDoc = await safeGetDoc(chatRef);
       
       if (!chatDoc.exists()) {
         await setDoc(chatRef, {
           id: chatId,
           patientId: firebaseUser.uid,
           patientName: userProfile?.name || firebaseUser.displayName || 'Patient',
-          clinicId: selectedClinic.id,
-          clinicName: selectedClinic.clinicName,
+          clinicId: liveClinic.id,
+          clinicName: liveClinic.clinicName,
           lastMessage: 'Chat started',
           lastMessageTime: new Date().toISOString(),
-          participants: [firebaseUser.uid, selectedClinic.ownerId],
+          participants: [firebaseUser.uid, liveClinic.ownerId],
           readBy: [firebaseUser.uid]
         });
       }
@@ -109,10 +112,10 @@ export const ClinicProfileView: React.FC = () => {
         formattedDate = dateObj.toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
       }
 
-      const doctorName = selectedDoctor ? `Dr. ${selectedDoctor.name}` : `${selectedClinic.clinicName} OPD`;
+      const doctorName = selectedDoctor ? `Dr. ${selectedDoctor.name}` : `${liveClinic.clinicName} OPD`;
 
       const bookingPayload = {
-        clinicId: selectedClinic.id,
+        clinicId: liveClinic.id,
         doctorId: selectedDoctor?.id || '',
         doctorName: doctorName,
         serviceName: selectedService,
@@ -121,6 +124,8 @@ export const ClinicProfileView: React.FC = () => {
         timeSlot: selectedTimeSlot,
         status: 'confirmed' as const,
         notes: symptoms,
+        patientName: patientName || userProfile?.name || firebaseUser?.displayName || 'Patient',
+        patientPhone: patientPhone || userProfile?.phone || '',
       };
 
       const createdApt = await createBooking(bookingPayload);
@@ -128,9 +133,9 @@ export const ClinicProfileView: React.FC = () => {
       setBookingSuccess({
         ...bookingPayload,
         tokenNumber: createdApt?.tokenNumber,
-        clinicName: selectedClinic.clinicName,
-        address: `${selectedClinic.address}, ${selectedClinic.city}`,
-        fee: selectedDoctor?.consultationFee || selectedClinic.consultationFee || 400
+        clinicName: liveClinic.clinicName,
+        address: `${liveClinic.address}, ${liveClinic.city}`,
+        fee: selectedDoctor?.consultationFee || liveClinic.consultationFee || 400
       });
     } catch (err: any) {
       console.error("Booking error:", err);
@@ -152,8 +157,8 @@ export const ClinicProfileView: React.FC = () => {
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         {/* Cover */}
         <div className="h-48 md:h-64 bg-slate-200 w-full relative">
-          {selectedClinic.coverImageUrl ? (
-            <img src={selectedClinic.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
+          {liveClinic.coverImageUrl ? (
+            <img src={liveClinic.coverImageUrl} alt="Cover" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gradient-to-r from-teal-500 to-emerald-400" />
           )}
@@ -164,25 +169,25 @@ export const ClinicProfileView: React.FC = () => {
         <div className="px-6 md:px-10 pb-8 relative">
           <div className="flex flex-col md:flex-row items-start md:items-end gap-4 md:gap-6 -mt-12 md:-mt-16 mb-6">
             <div className="w-24 h-24 md:w-32 md:h-32 bg-white rounded-2xl p-1.5 border border-slate-200 shadow-sm relative z-10">
-              {selectedClinic.logoUrl ? (
-                <img src={selectedClinic.logoUrl} alt="Logo" className="w-full h-full rounded-xl object-cover" />
+              {liveClinic.logoUrl ? (
+                <img src={liveClinic.logoUrl} alt="Logo" className="w-full h-full rounded-xl object-cover" />
               ) : (
                 <div className="w-full h-full rounded-xl bg-teal-50 flex items-center justify-center text-teal-700 font-bold text-3xl">
-                  {(selectedClinic.clinicName || 'C').charAt(0)}
+                  {(liveClinic.clinicName || 'C').charAt(0)}
                 </div>
               )}
             </div>
             <div className="flex-1 pb-2">
-              <h1 className="text-2xl md:text-3xl font-black text-slate-800">{selectedClinic.clinicName}</h1>
+              <h1 className="text-2xl md:text-3xl font-black text-slate-800">{liveClinic.clinicName}</h1>
               <div className="flex flex-wrap items-center gap-4 mt-2 text-slate-500 text-sm">
-                <span className="flex items-center"><MapPin className="w-4 h-4 mr-1" /> {selectedClinic.city}, {selectedClinic.state}</span>
+                <span className="flex items-center"><MapPin className="w-4 h-4 mr-1" /> {liveClinic.city}, {liveClinic.state}</span>
                 <span className="flex items-center text-amber-500 font-bold"><Star className="w-4 h-4 mr-1 fill-current" /> 4.8 Rating</span>
                 <span className="flex items-center"><Stethoscope className="w-4 h-4 mr-1" /> {clinicDoctors.length} Doctors</span>
                 <span className="flex items-center"><TestTube className="w-4 h-4 mr-1" /> {clinicLabs.length} Labs</span>
               </div>
               <div className="mt-3 flex items-center gap-2 bg-amber-50 border border-amber-200 text-amber-900 px-3.5 py-1.5 rounded-xl text-xs font-bold w-fit shadow-sm">
                 <Users className="w-4 h-4 text-amber-600 animate-pulse" />
-                <span>OPD Queue: {selectedClinic.waitingPatients || 0} Patients Currently Waiting</span>
+                <span>OPD Queue: {liveClinic.waitingPatients || 0} Patients Currently Waiting</span>
               </div>
             </div>
             <div className="pb-2 w-full md:w-auto flex flex-col md:flex-row gap-3">
@@ -207,7 +212,7 @@ export const ClinicProfileView: React.FC = () => {
 
           {/* Real-time Waitlist Widget */}
           {(() => {
-            const myClinicAppointment = firebaseUser ? appointments.find(a => a.clinicId === selectedClinic.id && a.patientId === firebaseUser.uid && a.status !== 'cancelled') : null;
+            const myClinicAppointment = firebaseUser ? appointments.find(a => a.clinicId === liveClinic.id && a.patientId === firebaseUser.uid && a.status !== 'cancelled') : null;
             return (
               <div className="mb-8 bg-gradient-to-r from-teal-900 via-slate-900 to-teal-950 rounded-2xl p-5 md:p-6 text-white border border-teal-700/60 shadow-xl relative overflow-hidden">
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
@@ -223,15 +228,15 @@ export const ClinicProfileView: React.FC = () => {
 
                   <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/15 w-full md:w-auto justify-around md:justify-start">
                     <div className="text-center px-3 border-r border-white/10">
-                      <p className="text-2xl font-black text-amber-300">{selectedClinic.waitingPatients || 0}</p>
+                      <p className="text-2xl font-black text-amber-300">{liveClinic.waitingPatients || 0}</p>
                       <p className="text-[10px] text-teal-200 font-bold uppercase">Waiting Now</p>
                     </div>
                     <div className="text-center px-3 border-r border-white/10">
-                      <p className="text-2xl font-black text-emerald-300">~{(selectedClinic.waitingPatients || 0) * 10}m</p>
+                      <p className="text-2xl font-black text-emerald-300">~{(liveClinic.waitingPatients || 0) * 10}m</p>
                       <p className="text-[10px] text-teal-200 font-bold uppercase">Est. Wait</p>
                     </div>
                     <div className="text-center px-3">
-                      <p className="text-2xl font-black text-teal-200">#{(selectedClinic.waitingPatients || 0) + 1}</p>
+                      <p className="text-2xl font-black text-teal-200">#{(liveClinic.waitingPatients || 0) + 1}</p>
                       <p className="text-[10px] text-teal-200 font-bold uppercase">Next Token</p>
                     </div>
                   </div>
@@ -252,7 +257,7 @@ export const ClinicProfileView: React.FC = () => {
                       </div>
                     </div>
                     <div className="bg-white/10 px-3 py-1.5 rounded-lg text-[11px] text-teal-100 font-bold">
-                      {Math.max(0, (selectedClinic.waitingPatients || 0))} Patients Currently Waiting
+                      {Math.max(0, (liveClinic.waitingPatients || 0))} Patients Currently Waiting
                     </div>
                   </div>
                 ) : (
@@ -262,7 +267,7 @@ export const ClinicProfileView: React.FC = () => {
                       onClick={() => handleOpenBooking()}
                       className="bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-1.5 rounded-xl text-xs font-black shadow-sm transition-all whitespace-nowrap"
                     >
-                      Get Token #{(selectedClinic.waitingPatients || 0) + 1}
+                      Get Token #{(liveClinic.waitingPatients || 0) + 1}
                     </button>
                   </div>
                 )}
@@ -275,15 +280,15 @@ export const ClinicProfileView: React.FC = () => {
               <section>
                 <h2 className="text-xl font-bold text-slate-800 mb-3 flex items-center gap-2"><Building2 className="text-teal-600" /> About Clinic</h2>
                 <p className="text-slate-600 leading-relaxed">
-                  {selectedClinic.about || selectedClinic.description || "No description provided."}
+                  {liveClinic.about || liveClinic.description || "No description provided."}
                 </p>
               </section>
 
               <section>
                 <h2 className="text-xl font-bold text-slate-800 mb-4 flex items-center gap-2"><Activity className="text-teal-600" /> Services</h2>
                 <div className="flex flex-wrap gap-2">
-                  {selectedClinic.services?.length > 0 ? (
-                    selectedClinic.services.map(s => (
+                  {liveClinic.services?.length > 0 ? (
+                    liveClinic.services.map(s => (
                       <span key={s} className="bg-slate-50 border border-slate-200 text-slate-700 px-3 py-1.5 rounded-lg text-sm font-medium">
                         {s}
                       </span>
@@ -352,7 +357,7 @@ export const ClinicProfileView: React.FC = () => {
                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><Clock className="text-teal-600" /> Working Hours</h3>
                 <div className="space-y-3">
                   {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => {
-                    const hours = selectedClinic.workingHours?.[day];
+                    const hours = liveClinic.workingHours?.[day];
                     return (
                       <div key={day} className="flex justify-between text-sm">
                         <span className="text-slate-600 font-medium">{day}</span>
@@ -367,13 +372,13 @@ export const ClinicProfileView: React.FC = () => {
               
               <div className="bg-slate-50 rounded-2xl p-6 border border-slate-200">
                 <h3 className="font-bold text-slate-800 mb-4 flex items-center gap-2"><MapPin className="text-teal-600" /> Location</h3>
-                <p className="text-sm text-slate-600 mb-2">{selectedClinic.address}</p>
-                <p className="text-sm text-slate-600 mb-4">{selectedClinic.locality && `${selectedClinic.locality}, `}{selectedClinic.city}, {selectedClinic.state} {selectedClinic.pinCode}</p>
+                <p className="text-sm text-slate-600 mb-2">{liveClinic.address}</p>
+                <p className="text-sm text-slate-600 mb-4">{liveClinic.locality && `${liveClinic.locality}, `}{liveClinic.city}, {liveClinic.state} {liveClinic.pinCode}</p>
                 <div className="w-full h-48 bg-slate-200 rounded-xl overflow-hidden relative border border-slate-200">
                   <LocationMap 
-                    providerName={selectedClinic.clinicName}
-                    address={`${selectedClinic.address}, ${selectedClinic.city}`}
-                    districtName={selectedClinic.district || selectedClinic.city || 'Srinagar'}
+                    providerName={liveClinic.clinicName}
+                    address={`${liveClinic.address}, ${liveClinic.city}`}
+                    districtName={liveClinic.district || liveClinic.city || 'Srinagar'}
                   />
                 </div>
               </div>

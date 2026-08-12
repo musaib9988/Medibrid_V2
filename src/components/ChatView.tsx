@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useApp } from '../context/AppContext';
-import { collection, query, where, orderBy, onSnapshot, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
+import { useApp, attachSafeSnapshot } from '../context/AppContext';
+import { collection, query, where, orderBy, addDoc, serverTimestamp, doc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Message, Chat } from '../types';
 import { ArrowLeft, Send, User } from 'lucide-react';
@@ -21,18 +21,18 @@ export const ChatView: React.FC = () => {
       orderBy('timestamp', 'asc')
     );
 
-    const unsubscribe = onSnapshot(q, (snapshot) => {
-      setMessages(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Message)));
+    const unsubscribe = attachSafeSnapshot(q, (snapshot: any) => {
+      setMessages(snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Message)));
       
       // Mark as read
       if (userProfile && activeChat && !activeChat.readBy.includes(userProfile.uid)) {
         updateDoc(doc(db, 'chats', activeChatId), {
           readBy: [...activeChat.readBy, userProfile.uid]
-        }).catch(console.error);
+        }).catch((err) => console.warn("Chat read update notice:", err));
       }
-    }, (error) => console.error("Snapshot error on messages:", error));
+    }, "Messages");
 
-    return () => unsubscribe();
+    return unsubscribe;
   }, [activeChatId, userProfile?.uid]);
 
   useEffect(() => {

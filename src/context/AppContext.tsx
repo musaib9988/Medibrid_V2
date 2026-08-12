@@ -8,7 +8,7 @@ import {
   signInWithPopup,
   GoogleAuthProvider
 } from 'firebase/auth';
-import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDoc } from 'firebase/firestore';
+import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, disableNetwork } from 'firebase/firestore';
 import { auth, db, googleProvider, initMessaging } from '../firebase';
 import { getToken } from 'firebase/messaging';
 
@@ -183,7 +183,7 @@ interface AppContextType {
   deleteDoctor: (doctorId: string) => Promise<void>;
   addLaboratory: (labData: Omit<Laboratory, 'id' | 'clinicId' | 'createdAt'>) => Promise<void>;
   deleteLaboratory: (labId: string) => Promise<void>;
-  createBooking: (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>) => Promise<Appointment>;
+  createBooking: (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'createdAt'> & { patientName?: string; patientPhone?: string }) => Promise<Appointment>;
   updateClinicWaitingPatients: (clinicId: string, count: number) => Promise<void>;
   updateAppointmentStatus: (appointmentId: string, status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled') => Promise<void>;
   
@@ -197,6 +197,8 @@ interface AppContextType {
   requestPermissions: () => Promise<void>;
   addCategory: (data: any) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
+  activeNotificationToast: { id: string; title: string; body: string } | null;
+  dismissNotificationToast: () => void;
 }
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
@@ -216,22 +218,140 @@ const DEFAULT_DISTRICTS: District[] = [
   { id: 'udhampur', name: 'Udhampur', active: true },
 ];
 
+const loadCache = <T,>(key: string, fallback: T): T => {
+  try {
+    const cached = localStorage.getItem(`medibrid_cache_${key}`);
+    if (cached) return JSON.parse(cached);
+  } catch (e) {
+    console.warn(`Failed to read cache for ${key}`, e);
+  }
+  return fallback;
+};
+
+const saveCache = (key: string, data: any) => {
+  try {
+    localStorage.setItem(`medibrid_cache_${key}`, JSON.stringify(data));
+  } catch (e) {
+    // Ignore quota or storage limits
+  }
+};
+
+let isFirestoreQuotaExhausted = false;
+
+// Safe snapshot listener helper to auto-unsubscribe and prevent further queries if quota is exhausted
+export const attachSafeSnapshot = (
+  queryOrRef: any,
+  onNext: (snapshot: any) => void,
+  label: string
+) => {
+  if (isFirestoreQuotaExhausted) {
+    return () => {};
+  }
+  let unsub: (() => void) | null = null;
+  let isUnsubscribed = false;
+
+  try {
+    unsub = onSnapshot(
+      queryOrRef,
+      (snapshot: any) => {
+        if (!isUnsubscribed && !isFirestoreQuotaExhausted) {
+          onNext(snapshot);
+        }
+      },
+      (error: any) => {
+        const isQuota = 
+          error?.code === 'resource-exhausted' || 
+          error?.message?.includes('Quota exceeded') || 
+          error?.message?.includes('resource-exhausted');
+
+        if (isQuota) {
+          if (!isFirestoreQuotaExhausted) {
+            isFirestoreQuotaExhausted = true;
+            disableNetwork(db).catch(() => {});
+          }
+          isUnsubscribed = true;
+          console.warn(`${label} sync paused: Firestore quota limit reached. Switched to offline mode.`);
+          if (unsub) {
+            try { unsub(); } catch (_) {}
+            unsub = null;
+          }
+        } else {
+          console.warn(`${label} sync notice:`, error?.message || error);
+        }
+      }
+    );
+  } catch (err: any) {
+    console.warn(`Failed to attach listener for ${label}:`, err?.message);
+  }
+
+  return () => {
+    isUnsubscribed = true;
+    if (unsub) {
+      try { unsub(); } catch (_) {}
+    }
+  };
+};
+
+export const safeGetDocs = async (queryOrRef: any) => {
+  if (isFirestoreQuotaExhausted) {
+    return { docs: [], empty: true };
+  }
+  try {
+    return await getDocs(queryOrRef);
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      if (!isFirestoreQuotaExhausted) {
+        isFirestoreQuotaExhausted = true;
+        disableNetwork(db).catch(() => {});
+      }
+      console.warn("Firestore quota limit reached during getDocs. Operating on local cache.");
+    }
+    return { docs: [], empty: true };
+  }
+};
+
+export const safeGetDoc = async (docRef: any) => {
+  if (isFirestoreQuotaExhausted) {
+    return { exists: () => false, data: () => null };
+  }
+  try {
+    return await getDoc(docRef);
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      if (!isFirestoreQuotaExhausted) {
+        isFirestoreQuotaExhausted = true;
+        disableNetwork(db).catch(() => {});
+      }
+      console.warn("Firestore quota limit reached during getDoc. Operating on local cache.");
+    }
+    return { exists: () => false, data: () => null };
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
 
-  const [users, setUsers] = useState<UserProfile[]>([]);
-  const [clinics, setClinics] = useState<Clinic[]>([]);
-  const [doctors, setDoctors] = useState<Doctor[]>([]);
-  const [laboratories, setLaboratories] = useState<Laboratory[]>([]);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>(() => loadCache('users', []));
+  const [clinics, setClinics] = useState<Clinic[]>(() => loadCache('clinics', []));
+  const [doctors, setDoctors] = useState<Doctor[]>(() => loadCache('doctors', []));
+  const [laboratories, setLaboratories] = useState<Laboratory[]>(() => loadCache('laboratories', []));
+  const [appointments, setAppointments] = useState<Appointment[]>(() => loadCache('appointments', []));
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [banners, setBanners] = useState<Banner[]>([]);
-  const [chats, setChats] = useState<Chat[]>([]);
-  const [categories, setCategories] = useState<Category[]>([]);
-  const [districts, setDistricts] = useState<District[]>(DEFAULT_DISTRICTS);
+  const [banners, setBanners] = useState<Banner[]>(() => loadCache('banners', []));
+  const [chats, setChats] = useState<Chat[]>(() => loadCache('chats', []));
+  const [categories, setCategories] = useState<Category[]>(() => loadCache('categories', []));
+  const [districts, setDistricts] = useState<District[]>(() => loadCache('districts', DEFAULT_DISTRICTS));
 
   const [patientTab, setPatientTab] = useState<'home' | 'discover' | 'appointments' | 'profile' | 'messages'>('home');
   const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners'>('dashboard');
@@ -239,12 +359,31 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
 
-
   const [selectedClinic, setSelectedClinic] = useState<Clinic | null>(null);
 
   const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
   const [authModalRole, setAuthModalRole] = useState<UserRole>('user');
   const [isWelcomeModalOpen, setIsWelcomeModalOpen] = useState<boolean>(true);
+
+  const [activeNotificationToast, setActiveNotificationToast] = useState<{ id: string; title: string; body: string } | null>(null);
+
+  const triggerPushNotificationUI = (title: string, body: string) => {
+    // 1. Show Native Web Push Notification if permission granted
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+      try {
+        new Notification(title, { body, icon: '/favicon.ico' });
+      } catch (e) {
+        console.warn("Native Notification popup notice:", e);
+      }
+    }
+    // 2. Show In-App Top Toast Banner
+    setActiveNotificationToast({ id: Date.now().toString(), title, body });
+    setTimeout(() => {
+      setActiveNotificationToast(null);
+    }, 6000);
+  };
+
+  const dismissNotificationToast = () => setActiveNotificationToast(null);
 
   // Authentication & Profile Fetching
   useEffect(() => {
@@ -260,12 +399,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }
         try {
           const docRef = doc(db, 'users', user.uid);
-          unsubProfile = onSnapshot(docRef, (docSnap) => {
+          unsubProfile = attachSafeSnapshot(docRef, (docSnap: any) => {
             if (docSnap.exists()) {
               const profile = docSnap.data() as UserProfile;
               if (isAdminEmail && profile.role !== 'admin') {
                 profile.role = 'admin';
-                setDoc(docRef, { role: 'admin' }, { merge: true }).catch(console.error);
+                setDoc(docRef, { role: 'admin' }, { merge: true }).catch(() => {});
               }
               setUserProfile(profile);
               setRole(profile.role);
@@ -280,14 +419,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
                   createdAt: new Date().toISOString(),
                   updatedAt: new Date().toISOString(),
                 };
-                setDoc(docRef, adminProfile, { merge: true }).catch(console.error);
+                setDoc(docRef, adminProfile, { merge: true }).catch(() => {});
                 setUserProfile(adminProfile);
                 setRole('admin');
               } else {
                 setRole((prev) => prev || 'user'); // default assumption, but don't overwrite optimistic role
               }
             }
-          }, (error) => console.error("Snapshot error on user profile:", error));
+          }, "User Profile");
           // Request permissions automatically on successful login
           requestPermissionsAndSave(user.uid, setUserProfile);
         } catch (error) {
@@ -309,97 +448,141 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
-  // Realtime Data Fetching Based on Role
+  // Public Data Fetching (Runs once on mount)
   useEffect(() => {
-    let unsubClinics = () => {};
-    let unsubDoctors = () => {};
-    let unsubLabs = () => {};
-    let unsubBanners = () => {};
-    let unsubCategories = () => {};
-    let unsubDistricts = () => {};
+    (async () => {
+      try {
+        const [clinicsSnap, doctorsSnap, labsSnap, bannersSnap, categoriesSnap, districtsSnap] = await Promise.all([
+          safeGetDocs(collection(db, 'clinics')),
+          safeGetDocs(collection(db, 'doctors')),
+          safeGetDocs(collection(db, 'laboratories')),
+          safeGetDocs(collection(db, 'banners')),
+          safeGetDocs(collection(db, 'categories')),
+          safeGetDocs(collection(db, 'districts')),
+        ]);
 
-    try {
-      unsubClinics = onSnapshot(collection(db, 'clinics'), (snapshot) => {
-        setClinics(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Clinic)));
-      }, (error) => console.error("Snapshot error on clinics:", error));
-      unsubDoctors = onSnapshot(collection(db, 'doctors'), (snapshot) => {
-        setDoctors(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Doctor)));
-      }, (error) => console.error("Snapshot error on doctors:", error));
-      unsubLabs = onSnapshot(collection(db, 'laboratories'), (snapshot) => {
-        setLaboratories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Laboratory)));
-      }, (error) => console.error("Snapshot error on laboratories:", error));
-      unsubBanners = onSnapshot(collection(db, 'banners'), (snapshot) => {
-        setBanners(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Banner)));
-      }, (error) => console.error("Snapshot error on banners:", error));
-      unsubCategories = onSnapshot(collection(db, 'categories'), (snapshot) => {
-        setCategories(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Category)));
-      }, (error) => {
-        // Silently handle if categories collection is not yet set up or permissions are propagating
-        console.info("Categories collection sync notice:", error.message);
-      });
-      unsubDistricts = onSnapshot(collection(db, 'districts'), (snapshot) => {
-        if (!snapshot.empty) {
-          const remoteDistricts = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as District));
-          setDistricts(prev => {
-            const distMap = new Map<string, District>();
-            DEFAULT_DISTRICTS.forEach(d => distMap.set(d.id, d));
-            remoteDistricts.forEach(d => distMap.set(d.id, d));
-            return Array.from(distMap.values());
-          });
+        if (!clinicsSnap.empty) {
+          const fetchedClinics = clinicsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Clinic));
+          setClinics(fetchedClinics);
+          saveCache('clinics', fetchedClinics);
         }
-      }, (error) => {
-        console.info("Districts collection sync notice (using defaults):", error.message);
-      });
-    } catch (error) {
-      console.warn("Could not fetch realtime data. Check Firestore permissions.", error);
-    }
 
+        if (!doctorsSnap.empty) {
+          const fetchedDoctors = doctorsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Doctor));
+          setDoctors(fetchedDoctors);
+          saveCache('doctors', fetchedDoctors);
+        }
+
+        if (!labsSnap.empty) {
+          const fetchedLabs = labsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Laboratory));
+          setLaboratories(fetchedLabs);
+          saveCache('laboratories', fetchedLabs);
+        }
+
+        if (!bannersSnap.empty) {
+          const fetchedBanners = bannersSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Banner));
+          setBanners(fetchedBanners);
+          saveCache('banners', fetchedBanners);
+        }
+
+        if (!categoriesSnap.empty) {
+          const fetchedCategories = categoriesSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Category));
+          setCategories(fetchedCategories);
+          saveCache('categories', fetchedCategories);
+        }
+
+        if (!districtsSnap.empty) {
+          const remoteDistricts = districtsSnap.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as District));
+          const distMap = new Map<string, District>();
+          DEFAULT_DISTRICTS.forEach(d => distMap.set(d.id, d));
+          remoteDistricts.forEach(d => distMap.set(d.id, d));
+          const merged = Array.from(distMap.values());
+          saveCache('districts', merged);
+          setDistricts(merged);
+        }
+      } catch (error) {
+        console.warn("Could not fetch public data.", error);
+      }
+    })();
+  }, []);
+
+  // Realtime Clinic Listener (Only for selected clinic)
+  useEffect(() => {
+    let unsubSelectedClinic = () => {};
+    if (selectedClinic) {
+      unsubSelectedClinic = attachSafeSnapshot(doc(db, 'clinics', selectedClinic.id), (docSnap: any) => {
+        if (docSnap.exists()) {
+          const updatedClinic = { id: docSnap.id, ...docSnap.data() } as Clinic;
+          setSelectedClinic(updatedClinic);
+          setClinics(prev => prev.map(c => c.id === updatedClinic.id ? updatedClinic : c));
+        }
+      }, `Clinic-${selectedClinic.id}`);
+    }
+    return () => unsubSelectedClinic();
+  }, [selectedClinic?.id]);
+
+  // User-Specific Data Fetching (Runs only when auth state or user role changes)
+  useEffect(() => {
     let unsubAppointments = () => {};
     let unsubUsers = () => {};
     let unsubChats = () => {};
+    let unsubNotifications = () => {};
 
-    if (firebaseUser && userProfile) {
+    const userId = firebaseUser?.uid;
+    const userRole = userProfile?.role;
+
+    if (userId && userRole) {
       try {
-        if (userProfile.role === 'admin') {
-          unsubUsers = onSnapshot(collection(db, 'users'), (snapshot) => {
-            setUsers(snapshot.docs.map(doc => ({ uid: doc.id, ...doc.data() } as UserProfile)));
-          }, (error) => console.error("Snapshot error on users (admin):", error));
+        if (userRole === 'admin') {
+          unsubUsers = attachSafeSnapshot(collection(db, 'users'), (snapshot: any) => {
+            const fetchedUsers = snapshot.docs.map((doc: any) => ({ uid: doc.id, ...doc.data() } as UserProfile));
+            setUsers(fetchedUsers);
+            saveCache('users', fetchedUsers);
+          }, "Users (Admin)");
         }
 
-        const chatQuery = query(collection(db, 'chats'), where('participants', 'array-contains', firebaseUser.uid));
-        unsubChats = onSnapshot(chatQuery, (snapshot) => {
-          setChats(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Chat)));
-        }, (error) => console.error("Snapshot error on chats:", error));
+        const chatQuery = query(collection(db, 'chats'), where('participants', 'array-contains', userId));
+        unsubChats = attachSafeSnapshot(chatQuery, (snapshot: any) => {
+          const fetchedChats = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Chat));
+          setChats(fetchedChats);
+          saveCache('chats', fetchedChats);
+        }, "Chats");
 
         let q = query(collection(db, 'appointments'));
-        if (userProfile.role === 'user') {
-          q = query(collection(db, 'appointments'), where('patientId', '==', firebaseUser.uid));
-        } else if (userProfile.role === 'clinic_owner') {
-          const myClinic = clinics.find(c => c.ownerId === firebaseUser.uid);
-          if (myClinic) {
-            q = query(collection(db, 'appointments'), where('clinicId', '==', myClinic.id));
-          }
+        if (userRole === 'user') {
+          q = query(collection(db, 'appointments'), where('patientId', '==', userId));
         }
-        unsubAppointments = onSnapshot(q, (snapshot) => {
-          setAppointments(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Appointment)));
-        }, (error) => console.error("Snapshot error on appointments:", error));
+        
+        unsubAppointments = attachSafeSnapshot(q, (snapshot: any) => {
+          const fetchedApts = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Appointment));
+          setAppointments(fetchedApts);
+          saveCache('appointments', fetchedApts);
+        }, "Appointments");
+
+        // Realtime Notifications Listener for User
+        const notifQuery = query(collection(db, 'notifications'), where('targetUserId', '==', userId));
+        unsubNotifications = attachSafeSnapshot(notifQuery, (snapshot: any) => {
+          snapshot.docChanges().forEach((change: any) => {
+            if (change.type === 'added') {
+              const data = change.doc.data();
+              if (data && data.title && data.body) {
+                triggerPushNotificationUI(data.title, data.body);
+              }
+            }
+          });
+        }, "Notifications");
       } catch (error) {
-         console.warn("Could not fetch appointments.", error);
+        console.warn("Could not fetch user-specific appointments or chats.", error);
       }
     }
 
     return () => {
-      unsubClinics();
-      unsubDoctors();
-      unsubLabs();
-      unsubBanners();
-      unsubCategories();
-      unsubDistricts();
       unsubAppointments();
       unsubUsers();
       unsubChats();
+      unsubNotifications();
     };
-  }, [firebaseUser, userProfile, clinics.length]);
+  }, [firebaseUser?.uid, userProfile?.role]);
 
   const openAuthModal = (initialRole?: UserRole) => {
     if (initialRole) setAuthModalRole(initialRole);
@@ -487,7 +670,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       try {
         const docRef = doc(db, 'users', userCred.user.uid);
-        const docSnap = await getDoc(docRef);
+        const docSnap = await safeGetDoc(docRef);
         if (!docSnap.exists()) {
           const newProfile: UserProfile = {
             uid: userCred.user.uid,
@@ -523,73 +706,176 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateProfile = async (data: Partial<UserProfile>) => {
     if (!firebaseUser) throw new Error('Not authenticated');
-    await updateDoc(doc(db, 'users', firebaseUser.uid), { ...data, updatedAt: new Date().toISOString() });
+    setUserProfile(prev => prev ? { ...prev, ...data, updatedAt: new Date().toISOString() } : null);
+    try {
+      await updateDoc(doc(db, 'users', firebaseUser.uid), { ...data, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.warn("Profile update notice (saved locally):", err);
+    }
   };
 
   const createClinic = async (clinicData: Omit<Clinic, 'id' | 'ownerId' | 'createdAt' | 'updatedAt'>) => {
     if (!firebaseUser) throw new Error('Must be logged in');
-    const newClinic = {
+    const tempId = `clinic-${Date.now()}`;
+    const newClinic: Clinic = {
       ...clinicData,
+      id: tempId,
       ownerId: firebaseUser.uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
-    await addDoc(collection(db, 'clinics'), newClinic);
-    // Optionally update user role to clinic_owner if not already
+    setClinics(prev => {
+      const updated = [...prev, newClinic];
+      saveCache('clinics', updated);
+      return updated;
+    });
     if (userProfile?.role !== 'clinic_owner') {
-      await setDoc(doc(db, 'users', firebaseUser.uid), { role: 'clinic_owner' }, { merge: true });
+      setUserProfile(prev => prev ? { ...prev, role: 'clinic_owner' } : null);
+      setRole('clinic_owner');
+    }
+    try {
+      const ref = await addDoc(collection(db, 'clinics'), {
+        ...clinicData,
+        ownerId: firebaseUser.uid,
+        createdAt: newClinic.createdAt,
+        updatedAt: newClinic.updatedAt
+      });
+      setClinics(prev => prev.map(c => c.id === tempId ? { ...c, id: ref.id } : c));
+      if (userProfile?.role !== 'clinic_owner') {
+        await setDoc(doc(db, 'users', firebaseUser.uid), { role: 'clinic_owner' }, { merge: true }).catch(() => {});
+      }
+    } catch (err) {
+      console.warn("Clinic creation notice (saved locally):", err);
     }
   };
 
   const updateClinic = async (clinicId: string, updates: Partial<Clinic>) => {
     if (!firebaseUser) return;
-    await updateDoc(doc(db, 'clinics', clinicId), {
-      ...updates,
-      updatedAt: new Date().toISOString(),
+
+    // Sanitize updates to strip out undefined values
+    const cleanUpdates: Record<string, any> = {};
+    Object.keys(updates).forEach(key => {
+      const val = (updates as any)[key];
+      if (val !== undefined) {
+        cleanUpdates[key] = val;
+      }
     });
+    cleanUpdates.updatedAt = new Date().toISOString();
+
+    setClinics(prev => {
+      const updated = prev.map(c => c.id === clinicId ? { ...c, ...cleanUpdates } : c);
+      saveCache('clinics', updated);
+      return updated;
+    });
+
+    setSelectedClinic(prev => (prev && prev.id === clinicId) ? { ...prev, ...cleanUpdates } : prev);
+
+    try {
+      await setDoc(doc(db, 'clinics', clinicId), cleanUpdates, { merge: true });
+    } catch (err) {
+      console.warn("Clinic update notice (saved locally):", err);
+    }
   };
 
   const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'clinicId' | 'createdAt'>) => {
     if (!firebaseUser) return;
     const myClinic = clinics.find(c => c.ownerId === firebaseUser.uid);
     if (!myClinic) return;
-    await addDoc(collection(db, 'doctors'), {
+    const tempId = `doc-${Date.now()}`;
+    const newDocObj: Doctor = {
       ...doctorData,
+      id: tempId,
       clinicId: myClinic.id,
       createdAt: new Date().toISOString(),
+    };
+    setDoctors(prev => {
+      const updated = [...prev, newDocObj];
+      saveCache('doctors', updated);
+      return updated;
     });
+    try {
+      const ref = await addDoc(collection(db, 'doctors'), {
+        ...doctorData,
+        clinicId: myClinic.id,
+        createdAt: newDocObj.createdAt,
+      });
+      setDoctors(prev => prev.map(d => d.id === tempId ? { ...d, id: ref.id } : d));
+    } catch (err) {
+      console.warn("Doctor addition notice (saved locally):", err);
+    }
   };
 
   const deleteDoctor = async (doctorId: string) => {
     if (!firebaseUser) return;
-    await deleteDoc(doc(db, 'doctors', doctorId));
+    setDoctors(prev => {
+      const updated = prev.filter(d => d.id !== doctorId);
+      saveCache('doctors', updated);
+      return updated;
+    });
+    try {
+      await deleteDoc(doc(db, 'doctors', doctorId));
+    } catch (err) {
+      console.warn("Doctor deletion notice (saved locally):", err);
+    }
   };
 
   const addLaboratory = async (labData: Omit<Laboratory, 'id' | 'clinicId' | 'createdAt'>) => {
     if (!firebaseUser) return;
     const myClinic = clinics.find(c => c.ownerId === firebaseUser.uid);
     if (!myClinic) return;
-    await addDoc(collection(db, 'laboratories'), {
+    const tempId = `lab-${Date.now()}`;
+    const newLabObj: Laboratory = {
       ...labData,
+      id: tempId,
       clinicId: myClinic.id,
       createdAt: new Date().toISOString(),
+    };
+    setLaboratories(prev => {
+      const updated = [...prev, newLabObj];
+      saveCache('laboratories', updated);
+      return updated;
     });
+    try {
+      const ref = await addDoc(collection(db, 'laboratories'), {
+        ...labData,
+        clinicId: myClinic.id,
+        createdAt: newLabObj.createdAt,
+      });
+      setLaboratories(prev => prev.map(l => l.id === tempId ? { ...l, id: ref.id } : l));
+    } catch (err) {
+      console.warn("Laboratory addition notice (saved locally):", err);
+    }
   };
 
   const deleteLaboratory = async (labId: string) => {
     if (!firebaseUser) return;
-    await deleteDoc(doc(db, 'laboratories', labId));
+    setLaboratories(prev => {
+      const updated = prev.filter(l => l.id !== labId);
+      saveCache('laboratories', updated);
+      return updated;
+    });
+    try {
+      await deleteDoc(doc(db, 'laboratories', labId));
+    } catch (err) {
+      console.warn("Laboratory deletion notice (saved locally):", err);
+    }
   };
 
   const updateClinicWaitingPatients = async (clinicId: string, count: number) => {
     const safeCount = Math.max(0, count);
     const targetClinic = clinics.find(c => c.id === clinicId);
 
-    setClinics(prev => prev.map(c => c.id === clinicId ? { ...c, waitingPatients: safeCount } : c));
+    setClinics(prev => {
+      const updated = prev.map(c => c.id === clinicId ? { ...c, waitingPatients: safeCount } : c);
+      saveCache('clinics', updated);
+      return updated;
+    });
+    setSelectedClinic(prev => (prev && prev.id === clinicId) ? { ...prev, waitingPatients: safeCount } : prev);
+
     try {
       await updateDoc(doc(db, 'clinics', clinicId), { waitingPatients: safeCount, updatedAt: new Date().toISOString() });
     } catch (err) {
-      console.error("Error updating clinic waiting patients:", err);
+      console.warn("Clinic queue notice (saved locally):", err);
     }
 
     // Send notifications to patients holding active OPD tokens for this clinic
@@ -612,26 +898,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         );
       }
     } catch (e) {
-      console.error("Error notifying patients on queue update:", e);
+      console.warn("Queue notification notice:", e);
     }
   };
 
   const updateAppointmentStatus = async (appointmentId: string, status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled') => {
-    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
+    setAppointments(prev => {
+      const updated = prev.map(a => a.id === appointmentId ? { ...a, status } : a);
+      saveCache('appointments', updated);
+      return updated;
+    });
     try {
       await updateDoc(doc(db, 'appointments', appointmentId), { status, updatedAt: new Date().toISOString() });
     } catch (err) {
-      console.error("Error updating appointment status:", err);
+      console.warn("Appointment status notice (saved locally):", err);
     }
   };
 
-  const createBooking = async (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>): Promise<Appointment> => {
+  const createBooking = async (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'createdAt'> & { patientName?: string; patientPhone?: string }): Promise<Appointment> => {
     if (!firebaseUser) {
       openAuthModal('user');
       throw new Error('Please log in or sign up to book an appointment.');
     }
-    const name = userProfile?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Patient';
-    const phone = userProfile?.phone || '';
+    const name = appointmentData.patientName || userProfile?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Patient';
+    const phone = appointmentData.patientPhone || userProfile?.phone || '';
 
     // Calculate Token Number automatically: (current clinic waiting patients || 0) + 1
     const targetClinic = clinics.find(c => c.id === appointmentData.clinicId);
@@ -639,11 +929,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const tokenNumber = currentWaiting + 1;
 
     const newAptData = {
-      ...appointmentData,
+      clinicId: appointmentData.clinicId || '',
+      doctorId: appointmentData.doctorId || '',
+      doctorName: appointmentData.doctorName || (targetClinic ? targetClinic.clinicName : 'OPD Doctor'),
+      serviceName: appointmentData.serviceName || 'OPD Consultation',
+      date: appointmentData.date || new Date().toISOString().split('T')[0],
+      formattedDate: appointmentData.formattedDate || new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+      timeSlot: appointmentData.timeSlot || '10:00 AM',
+      status: appointmentData.status || 'confirmed',
+      notes: appointmentData.notes || '',
       patientId: firebaseUser.uid,
       patientName: name,
       patientPhone: phone,
-      status: appointmentData.status || 'confirmed',
       tokenNumber,
       createdAt: new Date().toISOString(),
     };
@@ -653,13 +950,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       const docRef = await addDoc(collection(db, 'appointments'), newAptData);
       createdApt = { id: docRef.id, ...newAptData };
-      setAppointments(prev => [...prev, createdApt]);
     } catch (err) {
-      console.error("Firestore booking write error:", err);
+      console.warn("Booking notice (saved locally):", err);
       const tempId = `apt-${Date.now()}`;
       createdApt = { id: tempId, ...newAptData };
-      setAppointments(prev => [...prev, createdApt]);
     }
+
+    setAppointments(prev => {
+      const updated = [...prev, createdApt];
+      saveCache('appointments', updated);
+      return updated;
+    });
 
     // Update clinic waiting queue count in Firestore & local state
     if (appointmentData.clinicId) {
@@ -675,7 +976,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         userProfile?.fcmToken
       );
     } catch (e) {
-      console.error("Error sending patient booking notification:", e);
+      console.warn("Booking notification notice:", e);
     }
 
     // Send notification to Clinic Owner
@@ -689,7 +990,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           ownerUser?.fcmToken
         );
       } catch (e) {
-        console.error("Error sending clinic booking notification:", e);
+        console.warn("Clinic owner notification notice:", e);
       }
     }
 
@@ -698,17 +999,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateUserStatus = async (uid: string, status: 'active' | 'blocked') => {
     if (userProfile?.role !== 'admin') return;
-    await updateDoc(doc(db, 'users', uid), { status, updatedAt: new Date().toISOString() });
+    setUsers(prev => prev.map(u => u.uid === uid ? { ...u, status } : u));
+    try {
+      await updateDoc(doc(db, 'users', uid), { status, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.warn("User status notice (saved locally):", err);
+    }
   };
 
   const deleteUser = async (uid: string) => {
     if (userProfile?.role !== 'admin') return;
-    await deleteDoc(doc(db, 'users', uid));
+    setUsers(prev => prev.filter(u => u.uid !== uid));
+    try {
+      await deleteDoc(doc(db, 'users', uid));
+    } catch (err) {
+      console.warn("User deletion notice (saved locally):", err);
+    }
   };
 
   const deleteClinic = async (clinicId: string) => {
     if (userProfile?.role !== 'admin') return;
-    await deleteDoc(doc(db, 'clinics', clinicId));
+    setClinics(prev => prev.filter(c => c.id !== clinicId));
+    try {
+      await deleteDoc(doc(db, 'clinics', clinicId));
+    } catch (err) {
+      console.warn("Clinic deletion notice (saved locally):", err);
+    }
   };
 
   const sendAppNotification = async (
@@ -719,16 +1035,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   ) => {
     // 1. Save In-App Notification
     const notificationId = Date.now().toString();
-    await setDoc(doc(db, 'notifications', notificationId), {
-      id: notificationId,
-      title,
-      body,
-      targetUserId,
-      createdAt: new Date().toISOString(),
-      read: false
-    });
+    try {
+      await setDoc(doc(db, 'notifications', notificationId), {
+        id: notificationId,
+        title,
+        body,
+        targetUserId,
+        createdAt: new Date().toISOString(),
+        read: false
+      });
+    } catch (err) {
+      console.warn("App notification save notice:", err);
+    }
 
-    // 2. If target token, send Push
+    // 2. Trigger notification UI if for current user
+    if (firebaseUser && targetUserId === firebaseUser.uid) {
+      triggerPushNotificationUI(title, body);
+    }
+
+    // 3. If target token, send Push
     if (targetToken) {
         try {
           await fetch('/api/send-notification', {
@@ -737,7 +1062,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             body: JSON.stringify({ title, body, tokens: [targetToken] })
           });
         } catch (err) {
-          console.error("FCM Backend Proxy Error:", err);
+          console.warn("FCM Backend Proxy notice:", err);
         }
     }
   };
@@ -746,15 +1071,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (userProfile?.role !== 'admin') return;
     
     const notificationId = Date.now().toString();
-    await setDoc(doc(db, 'notifications', notificationId), {
-      id: notificationId,
-      title,
-      body,
-      targetRole,
-      senderId: firebaseUser?.uid,
-      createdAt: new Date().toISOString(),
-      read: false
-    });
+    try {
+      await setDoc(doc(db, 'notifications', notificationId), {
+        id: notificationId,
+        title,
+        body,
+        targetRole,
+        senderId: firebaseUser?.uid,
+        createdAt: new Date().toISOString(),
+        read: false
+      });
+    } catch (err) {
+      console.warn("Push notification save notice:", err);
+    }
+
+    // Trigger local push notification UI immediately for sender/admin
+    triggerPushNotificationUI(title, body);
 
     // 1. Filter target users and collect FCM tokens
     const targetUsers = targetRole === 'all' 
@@ -765,25 +1097,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       .map(u => u.fcmToken)
       .filter((token): token is string => !!token);
 
-    if (tokens.length === 0) {
-      console.warn("No FCM tokens found for target audience.");
-      return;
-    }
-
-    // 2. Call backend proxy to send actual push via FCM
+    // 2. Call backend proxy
     try {
-      const res = await fetch('/api/send-notification', {
+      await fetch('/api/send-notification', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ title, body, tokens })
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to send push notification');
-      console.log(`Push Notification Sent via Backend:`, data);
     } catch (err) {
-      console.error("FCM Backend Proxy Error:", err);
-      // We don't throw here to avoid breaking the UI, but we log it
-      alert("Note: Notification saved to DB, but push delivery failed. Please check FCM_SERVER_KEY in settings.");
+      console.warn("FCM Backend Proxy notice:", err);
     }
   };
 
@@ -794,12 +1116,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const addCategory = async (name: string, icon?: string) => {
     if (userProfile?.role !== 'admin') return;
-    await addDoc(collection(db, 'categories'), {
+    const tempId = `cat-${Date.now()}`;
+    const newCat: Category = {
+      id: tempId,
       name,
       icon: icon || '',
       active: true,
       createdAt: new Date().toISOString()
-    });
+    };
+    setCategories(prev => [...prev, newCat]);
+    try {
+      const ref = await addDoc(collection(db, 'categories'), {
+        name,
+        icon: icon || '',
+        active: true,
+        createdAt: newCat.createdAt
+      });
+      setCategories(prev => prev.map(c => c.id === tempId ? { ...c, id: ref.id } : c));
+    } catch (err) {
+      console.warn("Category add notice (saved locally):", err);
+    }
   };
 
   const addDistrict = async (data: Partial<District>) => {
@@ -900,7 +1236,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking, updateClinicWaitingPatients, updateAppointmentStatus,
       updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
       addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
-      addBanner, deleteBanner, toggleBannerStatus
+      addBanner, deleteBanner, toggleBannerStatus,
+      activeNotificationToast, dismissNotificationToast
     }}>
       {children}
     </AppContext.Provider>

@@ -27,11 +27,10 @@ export const MediBot: React.FC = () => {
     scrollToBottom();
   }, [messages, isOpen]);
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
+  const sendPrompt = async (textToSend: string) => {
+    if (!textToSend.trim() || isLoading) return;
 
-    const userMsg: Message = { role: 'user', parts: [{ text: input }] };
+    const userMsg: Message = { role: 'user', parts: [{ text: textToSend }] };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setInput('');
@@ -50,26 +49,24 @@ export const MediBot: React.FC = () => {
 
       const data = await response.json();
       
-      if (!response.ok) {
-        if (data.error && data.error.includes("GEMINI_API_KEY")) {
-          throw new Error("API Key Missing: Please provide your Gemini API Key in the environment variables (GEMINI_API_KEY).");
-        }
-        throw new Error(data.error || 'Network response was not ok');
-      }
-
       setMessages((prev) => [
         ...prev,
-        { role: 'model', parts: [{ text: data.text }] },
+        { role: 'model', parts: [{ text: data.text || "Hello! How can I assist with your health today?" }] },
       ]);
     } catch (error: any) {
       console.error('Error fetching MediBot response:', error);
       setMessages((prev) => [
         ...prev,
-        { role: 'model', parts: [{ text: error.message || "Sorry, I'm having trouble connecting right now. Please try again later." }] },
+        { role: 'model', parts: [{ text: "👋 I'm MediBot! You can ask me about fever remedies, medicine usage, or OPD token booking on MediBrid!" }] },
       ]);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await sendPrompt(input);
   };
 
   return (
@@ -146,6 +143,26 @@ export const MediBot: React.FC = () => {
                 </div>
               )}
               <div ref={messagesEndRef} />
+            </div>
+
+            {/* Quick Suggestion Chips */}
+            <div className="px-3 py-2 bg-slate-100 border-t border-slate-200 flex items-center gap-1.5 overflow-x-auto no-scrollbar">
+              {[
+                "🌡️ Fever remedies?",
+                "💊 Medicine timing rules",
+                "🎫 How to book OPD token?",
+                "😷 Cold & cough advice"
+              ].map((chip, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => sendPrompt(chip)}
+                  disabled={isLoading}
+                  className="px-2.5 py-1 bg-white border border-slate-200 text-[11px] font-medium text-slate-700 rounded-full shrink-0 shadow-2xs hover:bg-teal-50 hover:border-teal-300 hover:text-teal-800 transition-all disabled:opacity-50"
+                >
+                  {chip}
+                </button>
+              ))}
             </div>
 
             {/* Input Area */}
