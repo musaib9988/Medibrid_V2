@@ -185,6 +185,7 @@ interface AppContextType {
   deleteLaboratory: (labId: string) => Promise<void>;
   createBooking: (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'patientName' | 'patientPhone' | 'createdAt'>) => Promise<Appointment>;
   updateClinicWaitingPatients: (clinicId: string, count: number) => Promise<void>;
+  updateAppointmentStatus: (appointmentId: string, status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled') => Promise<void>;
   
   // Admin Management
   updateUserStatus: (uid: string, status: 'active' | 'blocked') => Promise<void>;
@@ -582,11 +583,45 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const updateClinicWaitingPatients = async (clinicId: string, count: number) => {
     const safeCount = Math.max(0, count);
+    const targetClinic = clinics.find(c => c.id === clinicId);
+
     setClinics(prev => prev.map(c => c.id === clinicId ? { ...c, waitingPatients: safeCount } : c));
     try {
       await updateDoc(doc(db, 'clinics', clinicId), { waitingPatients: safeCount, updatedAt: new Date().toISOString() });
     } catch (err) {
       console.error("Error updating clinic waiting patients:", err);
+    }
+
+    // Send notifications to patients holding active OPD tokens for this clinic
+    try {
+      const activeClinicApts = appointments.filter(a => 
+        a.clinicId === clinicId && 
+        (a.status === 'confirmed' || a.status === 'upcoming')
+      );
+
+      for (const apt of activeClinicApts) {
+        if (!apt.patientId) continue;
+        const patientUser = users.find(u => u.uid === apt.patientId);
+        const estWaitMins = safeCount * 10;
+        
+        sendAppNotification(
+          `📢 OPD Queue Position Updated! (Token #${apt.tokenNumber || '—'})`,
+          `Clinic Queue Update: ${safeCount} patient(s) currently ahead at ${targetClinic?.clinicName || 'Clinic'}. Projected wait time: ~${estWaitMins} mins.`,
+          apt.patientId,
+          patientUser?.fcmToken
+        );
+      }
+    } catch (e) {
+      console.error("Error notifying patients on queue update:", e);
+    }
+  };
+
+  const updateAppointmentStatus = async (appointmentId: string, status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled') => {
+    setAppointments(prev => prev.map(a => a.id === appointmentId ? { ...a, status } : a));
+    try {
+      await updateDoc(doc(db, 'appointments', appointmentId), { status, updatedAt: new Date().toISOString() });
+    } catch (err) {
+      console.error("Error updating appointment status:", err);
     }
   };
 
@@ -862,7 +897,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isAuthModalOpen, authModalRole, openAuthModal, closeAuthModal,
       isWelcomeModalOpen, setIsWelcomeModalOpen,
       loginWithFirebaseEmail, registerWithFirebaseEmail, resetPassword, loginWithGoogle, logoutUser,
-      createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking, updateClinicWaitingPatients,
+      createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking, updateClinicWaitingPatients, updateAppointmentStatus,
       updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
       addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
       addBanner, deleteBanner, toggleBannerStatus

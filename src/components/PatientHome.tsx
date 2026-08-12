@@ -6,7 +6,7 @@ import {
   Home, Compass, Calendar, User, Map as MapIcon, MessageSquare, LogOut, Grid, 
   Bell, Maximize2, ChevronRight, QrCode, FileText, Receipt, RefreshCw, XCircle, 
   Shield, FileCheck, Tag, Share2, ShieldCheck, RotateCcw, Brain, Eye, Activity, Truck,
-  Clock, Timer
+  Clock, Timer, Users
 } from 'lucide-react';
 import { ClinicProfileView } from './ClinicProfileView';
 import { MessagesTab } from './MessagesTab';
@@ -198,9 +198,10 @@ function getAppointmentTargetDate(dateStr?: string, timeSlotStr?: string): Date 
 }
 
 export const PatientHome: React.FC = () => {
-  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, appointments = [] } = useApp();
+  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, updateAppointmentStatus, appointments = [] } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
+  const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
   const [permissionLoading, setPermissionLoading] = useState(false);
   const [dismissedPrompt, setDismissedPrompt] = useState(false);
   const [activeProfileModal, setActiveProfileModal] = useState<{title: string, subtitle?: string} | null>(null);
@@ -479,6 +480,68 @@ export const PatientHome: React.FC = () => {
               )}
             </AnimatePresence>
 
+            {/* Top OPD Active Token & Live Queue Popup Card */}
+            {(() => {
+              if (!displayAppointment) return null;
+              const aptClinic = clinics.find(c => c.id === displayAppointment.clinicId);
+              const waitingCount = aptClinic?.waitingPatients || 0;
+              const projectedWaitMins = waitingCount * 10;
+
+              return (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mb-8 bg-gradient-to-br from-teal-900 via-slate-900 to-teal-950 rounded-[28px] p-5 text-white shadow-xl relative overflow-hidden border border-teal-700/60"
+                >
+                  <div className="flex items-center justify-between mb-3">
+                    <div className="flex items-center gap-2">
+                      <span className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping"></span>
+                      <span className="text-[10px] text-teal-300 uppercase font-extrabold tracking-widest">Active OPD Token Status</span>
+                    </div>
+                    <span className="text-xs bg-emerald-400 text-slate-950 font-black px-3 py-1 rounded-full shadow-sm">
+                      Token #{displayAppointment.tokenNumber || '—'}
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 mb-4">
+                    <div>
+                      <h4 className="font-bold text-white text-base leading-tight">
+                        {displayAppointment.doctorName || 'OPD Doctor Consultation'}
+                      </h4>
+                      <p className="text-xs text-teal-100 mt-0.5">
+                        {aptClinic?.clinicName || displayAppointment.clinicName || 'Clinic'} • Slot: {displayAppointment.timeSlot || '10:00 AM'}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 bg-white/10 backdrop-blur-md px-3.5 py-2 rounded-2xl border border-white/15 w-full sm:w-auto justify-around">
+                      <div className="text-center px-2">
+                        <p className="text-xl font-black text-amber-300">{waitingCount}</p>
+                        <p className="text-[9px] text-teal-200 uppercase font-bold">Ahead in Line</p>
+                      </div>
+                      <div className="h-6 w-px bg-white/20"></div>
+                      <div className="text-center px-2">
+                        <p className="text-xl font-black text-emerald-300">~{projectedWaitMins} Mins</p>
+                        <p className="text-[9px] text-teal-200 uppercase font-bold">Projected Wait</p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-3 border-t border-white/10 flex items-center justify-between gap-3">
+                    <p className="text-[11px] text-teal-200/90 font-medium">
+                      Live status updates will notify you automatically when queue advances.
+                    </p>
+                    <button 
+                      onClick={() => setActiveProfileModal({ title: "QR Code Patient Pass", subtitle: `Pass for ${displayAppointment.doctorName || 'Doctor'}` })}
+                      className="bg-white/15 hover:bg-white/25 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all backdrop-blur-md border border-white/20 shrink-0"
+                    >
+                      <QrCode className="w-3.5 h-3.5 text-teal-200" />
+                      <span>Digital Ticket</span>
+                    </button>
+                  </div>
+                </motion.div>
+              );
+            })()}
+
             {/* Hero Banners */}
             <div className="mb-8">
               {banners.filter(b => b.active).length > 0 ? (
@@ -736,15 +799,167 @@ export const PatientHome: React.FC = () => {
         )}
 
         {patientTab === 'appointments' && (
-          <div className="animate-in fade-in flex flex-col items-center justify-center h-[60vh] text-center px-6">
-             <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-6 border border-teal-100 shadow-sm">
-                <Calendar className="w-10 h-10 text-teal-600" />
-             </div>
-             <h2 className="text-2xl font-bold text-slate-900 mb-2">No Appointments Yet</h2>
-             <p className="text-slate-500 text-sm mb-8 max-w-[260px]">You haven't booked any consultations yet. Find a doctor to get started.</p>
-             <button onClick={() => setPatientTab('discover')} className="bg-[#2D8C7C] text-white px-8 py-3.5 rounded-full font-bold shadow-md hover:bg-teal-700 transition-colors">
-                Find a Doctor
-             </button>
+          <div className="animate-in fade-in pb-8">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h1 className="text-2xl font-bold text-slate-900">My Bookings & OPD Tokens</h1>
+                <p className="text-xs text-slate-500 mt-0.5">Track active OPD tickets, assigned token numbers, and live waiting status.</p>
+              </div>
+              <button 
+                onClick={() => setPatientTab('discover')}
+                className="bg-teal-600 text-white px-4 py-2 rounded-full text-xs font-bold shadow-sm hover:bg-teal-700 transition-colors shrink-0"
+              >
+                + New Booking
+              </button>
+            </div>
+
+            {/* Sub-Filter Tabs */}
+            <div className="flex gap-2 overflow-x-auto no-scrollbar mb-6 pb-1">
+              {[
+                { id: 'all', label: 'All Bookings' },
+                { id: 'active', label: 'Active & Confirmed' },
+                { id: 'completed', label: 'Completed' },
+                { id: 'cancelled', label: 'Cancelled' },
+              ].map(tab => (
+                <button
+                  key={tab.id}
+                  onClick={() => setBookingStatusFilter(tab.id as any)}
+                  className={`px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap shadow-sm transition-all ${
+                    bookingStatusFilter === tab.id 
+                      ? 'bg-slate-900 text-white' 
+                      : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* Bookings List */}
+            {(() => {
+              const allUserApts = (appointments || []).filter(a => 
+                a && (a.patientId === firebaseUser?.uid || a.patientId === userProfile?.uid)
+              );
+
+              const filteredApts = allUserApts.filter(a => {
+                if (bookingStatusFilter === 'active') return a.status === 'confirmed' || a.status === 'upcoming';
+                if (bookingStatusFilter === 'completed') return a.status === 'completed';
+                if (bookingStatusFilter === 'cancelled') return a.status === 'cancelled';
+                return true;
+              });
+
+              if (filteredApts.length === 0) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-16 text-center px-6 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                    <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4 border border-teal-100 shadow-sm">
+                      <Calendar className="w-10 h-10 text-teal-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">No Bookings Found</h2>
+                    <p className="text-slate-500 text-xs mb-6 max-w-[280px]">
+                      {bookingStatusFilter === 'all' 
+                        ? "You haven't booked any OPD appointments yet." 
+                        : `No ${bookingStatusFilter} appointments found in your record.`}
+                    </p>
+                    <button onClick={() => setPatientTab('discover')} className="bg-[#2D8C7C] text-white px-6 py-3 rounded-full text-xs font-bold shadow-md hover:bg-teal-700 transition-colors">
+                      Book an Appointment Now
+                    </button>
+                  </div>
+                );
+              }
+
+              return (
+                <div className="space-y-4">
+                  {filteredApts.map((apt, idx) => {
+                    const aptClinic = clinics.find(c => c.id === apt.clinicId);
+                    const waitingNow = aptClinic?.waitingPatients || 0;
+                    const estWaitMins = waitingNow * 10;
+
+                    return (
+                      <motion.div
+                        key={apt.id || idx}
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.3, delay: idx * 0.05 }}
+                        className="bg-white rounded-2xl border border-slate-200 p-5 shadow-sm hover:shadow-md transition-all relative overflow-hidden"
+                      >
+                        {/* Status & Token Header */}
+                        <div className="flex items-center justify-between border-b border-slate-100 pb-3 mb-3">
+                          <div className="flex items-center gap-2">
+                            <span className="bg-emerald-600 text-white font-black text-xs px-3 py-1 rounded-lg shadow-sm flex items-center gap-1">
+                              <span>OPD Token #{apt.tokenNumber || '—'}</span>
+                            </span>
+                            <span className={`text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase ${
+                              apt.status === 'confirmed' || apt.status === 'upcoming' 
+                                ? 'bg-teal-50 text-teal-700 border border-teal-200' 
+                                : apt.status === 'completed' 
+                                  ? 'bg-blue-50 text-blue-700 border border-blue-200' 
+                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
+                            }`}>
+                              {apt.status || 'CONFIRMED'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400 font-medium">{apt.formattedDate || apt.date || 'Today'}</p>
+                        </div>
+
+                        {/* Details */}
+                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+                          <div>
+                            <h3 className="font-bold text-slate-900 text-base">{apt.doctorName || 'Doctor Consultation'}</h3>
+                            <p className="text-xs font-semibold text-teal-700 mt-0.5">{aptClinic?.clinicName || apt.clinicName || 'Clinic'}</p>
+                            <p className="text-xs text-slate-500 mt-1 flex items-center gap-1">
+                              <Clock className="w-3.5 h-3.5 text-slate-400" /> Slot: <strong className="text-slate-800">{apt.timeSlot || 'OPD Slot'}</strong>
+                            </p>
+                            {apt.notes && (
+                              <p className="text-[11px] text-slate-500 bg-slate-50 px-2.5 py-1 rounded-lg border border-slate-100 mt-2">
+                                Notes: {apt.notes}
+                              </p>
+                            )}
+                          </div>
+
+                          {/* Live Queue Box for Active Bookings */}
+                          {(apt.status === 'confirmed' || apt.status === 'upcoming') && (
+                            <div className="bg-amber-50 border border-amber-200/80 p-3 rounded-xl text-amber-950 w-full sm:w-auto shrink-0 space-y-1">
+                              <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900">
+                                <Users className="w-4 h-4 text-amber-600 animate-pulse" />
+                                <span>Live OPD Waiting Queue</span>
+                              </div>
+                              <p className="text-xs font-semibold">
+                                <strong className="text-amber-900 text-sm">{waitingNow}</strong> Patients Currently Waiting
+                              </p>
+                              <p className="text-[10px] text-amber-700">Est. Wait Time: ~{estWaitMins} mins</p>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Card Actions Footer */}
+                        <div className="pt-3 border-t border-slate-100 flex flex-wrap items-center justify-between gap-2">
+                          <button
+                            onClick={() => setActiveProfileModal({ title: "QR Code Patient Pass", subtitle: `Pass for ${apt.doctorName || 'Doctor'}` })}
+                            className="bg-slate-900 hover:bg-slate-800 text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 transition-colors shadow-xs"
+                          >
+                            <QrCode className="w-4 h-4 text-teal-300" />
+                            <span>Digital Ticket Pass</span>
+                          </button>
+
+                          {(apt.status === 'confirmed' || apt.status === 'upcoming') && (
+                            <button
+                              onClick={() => {
+                                if (window.confirm('Are you sure you want to cancel this appointment?')) {
+                                  updateAppointmentStatus(apt.id, 'cancelled');
+                                }
+                              }}
+                              className="text-rose-600 hover:text-rose-700 hover:bg-rose-50 px-3 py-2 rounded-xl text-xs font-bold transition-colors flex items-center gap-1"
+                            >
+                              <XCircle className="w-4 h-4" /> Cancel Booking
+                            </button>
+                          )}
+                        </div>
+                      </motion.div>
+                    );
+                  })}
+                </div>
+              );
+            })()}
           </div>
         )}
 
