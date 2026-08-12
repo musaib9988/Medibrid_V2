@@ -218,10 +218,178 @@ const DEFAULT_DISTRICTS: District[] = [
   { id: 'udhampur', name: 'Udhampur', active: true },
 ];
 
+const DEFAULT_CATEGORIES: Category[] = [
+  { id: 'cat-1', name: 'General Physician', icon: 'Stethoscope', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-2', name: 'Pediatrics (Child Care)', icon: 'Users', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-3', name: 'Cardiology', icon: 'Activity', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-4', name: 'Dermatology (Skin Care)', icon: 'Sparkles', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-5', name: 'Orthopedics (Bones & Joints)', icon: 'Activity', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-6', name: 'ENT Specialist', icon: 'User', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-7', name: 'Gynecology & Obstetrics', icon: 'Users', active: true, createdAt: new Date().toISOString() },
+  { id: 'cat-8', name: 'Dental Care', icon: 'Sparkles', active: true, createdAt: new Date().toISOString() }
+];
+
+const DEFAULT_BANNERS: Banner[] = [
+  {
+    id: 'ban-1',
+    title: 'Skip the OPD Line - Live Token Queue',
+    imageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=1200',
+    link: '#discover',
+    active: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'ban-2',
+    title: 'Instant Clinic OPD Booking',
+    imageUrl: 'https://images.unsplash.com/photo-1576091160399-112ba8d25d1d?auto=format&fit=crop&q=80&w=1200',
+    link: '#discover',
+    active: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
+const DEFAULT_CLINICS: Clinic[] = [
+  {
+    id: 'clinic-1',
+    ownerId: 'demo-owner-1',
+    clinicName: 'MediBridge Care & OPD Clinic',
+    clinicType: 'Multi-Specialty Clinic',
+    description: 'Advanced healthcare facility with real-time OPD token status and expert specialists.',
+    about: 'MediBridge Care provides comprehensive OPD services, lab testing, and specialist consultation with real-time queue tracking.',
+    phone: '9876543210',
+    email: 'info@medibridgecare.com',
+    whatsapp: '9876543210',
+    address: 'Karan Nagar, Near Government Medical College',
+    locality: 'Karan Nagar',
+    city: 'Srinagar',
+    district: 'srinagar',
+    state: 'Jammu & Kashmir',
+    pinCode: '190010',
+    waitingPatients: 3,
+    emergencyAvailable: true,
+    status: 'active',
+    verified: true,
+    logoUrl: 'https://images.unsplash.com/photo-1629909613654-28e377c37b09?auto=format&fit=crop&q=80&w=300',
+    coverImageUrl: 'https://images.unsplash.com/photo-1586773860418-d37222d8fce3?auto=format&fit=crop&q=80&w=1000',
+    services: ['OPD Consultation', 'Blood Test & Diagnostics', 'ECG & Cardiology', 'Pediatric Care', 'Vaccination'],
+    specializations: ['General Medicine', 'Pediatrics', 'Cardiology'],
+    workingHours: {
+      Monday: { isOpen: true, openTime: '09:00', closeTime: '17:00' },
+      Tuesday: { isOpen: true, openTime: '09:00', closeTime: '17:00' },
+      Wednesday: { isOpen: true, openTime: '09:00', closeTime: '17:00' },
+      Thursday: { isOpen: true, openTime: '09:00', closeTime: '17:00' },
+      Friday: { isOpen: true, openTime: '09:00', closeTime: '17:00' },
+      Saturday: { isOpen: true, openTime: '09:00', closeTime: '14:00' },
+      Sunday: { isOpen: false, openTime: '09:00', closeTime: '17:00' }
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'clinic-2',
+    ownerId: 'demo-owner-2',
+    clinicName: 'Al-Shifa OPD & Diagnostic Center',
+    clinicType: 'OPD & Diagnostic Clinic',
+    description: 'Expert physicians, pathology lab, and instant OPD appointment tokens.',
+    about: 'Al-Shifa Center offers quality OPD healthcare with state-of-the-art diagnostics.',
+    phone: '9797001122',
+    email: 'contact@alshifa.com',
+    whatsapp: '9797001122',
+    address: 'Main Highway, Near Civil Hospital',
+    locality: 'Main Market',
+    city: 'Baramulla',
+    district: 'baramulla',
+    state: 'Jammu & Kashmir',
+    pinCode: '193101',
+    waitingPatients: 1,
+    emergencyAvailable: true,
+    status: 'active',
+    verified: true,
+    logoUrl: 'https://images.unsplash.com/photo-1516549655169-df83a0774514?auto=format&fit=crop&q=80&w=300',
+    coverImageUrl: 'https://images.unsplash.com/photo-1519494026892-80bbd2d6fd0d?auto=format&fit=crop&q=80&w=1000',
+    services: ['General OPD', 'Diabetes Care', 'Pathology Lab', 'Thyroid Profile'],
+    specializations: ['General Medicine', 'Pathology', 'Cardiology'],
+    workingHours: {
+      Monday: { isOpen: true, openTime: '09:00', closeTime: '18:00' },
+      Tuesday: { isOpen: true, openTime: '09:00', closeTime: '18:00' },
+      Wednesday: { isOpen: true, openTime: '09:00', closeTime: '18:00' },
+      Thursday: { isOpen: true, openTime: '09:00', closeTime: '18:00' },
+      Friday: { isOpen: true, openTime: '09:00', closeTime: '18:00' },
+      Saturday: { isOpen: true, openTime: '09:00', closeTime: '16:00' },
+      Sunday: { isOpen: false, openTime: '09:00', closeTime: '18:00' }
+    },
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  }
+];
+
+const DEFAULT_DOCTORS: Doctor[] = [
+  {
+    id: 'doc-1',
+    clinicId: 'clinic-1',
+    name: 'Sameer Ahmad Khan',
+    specialization: 'General Physician & Diabetologist',
+    qualification: 'MBBS, MD (Internal Medicine)',
+    experience: 12,
+    phone: '9876543210',
+    email: 'dr.sameer@medibridge.com',
+    consultationFee: 400,
+    photoUrl: 'https://images.unsplash.com/photo-1622253692010-333f2da6031d?auto=format&fit=crop&q=80&w=300',
+    availableDays: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'],
+    availableTime: '10:00 AM - 04:00 PM',
+    about: 'Experienced General Physician specializing in diabetes and internal medicine.',
+    languages: ['English', 'Kashmiri', 'Urdu', 'Hindi'],
+    active: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'doc-2',
+    clinicId: 'clinic-1',
+    name: 'Farhana Rashid',
+    specialization: 'Pediatrician (Child Specialist)',
+    qualification: 'MBBS, DCH (Pediatrics)',
+    experience: 9,
+    phone: '9876543211',
+    email: 'dr.farhana@medibridge.com',
+    consultationFee: 400,
+    photoUrl: 'https://images.unsplash.com/photo-1594824813566-7884d8521e10?auto=format&fit=crop&q=80&w=300',
+    availableDays: ['Monday', 'Wednesday', 'Friday', 'Saturday'],
+    availableTime: '11:00 AM - 03:00 PM',
+    about: 'Compassionate Child Specialist dedicated to pediatric wellness and immunization.',
+    languages: ['English', 'Kashmiri', 'Urdu', 'Hindi'],
+    active: true,
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'doc-3',
+    clinicId: 'clinic-2',
+    name: 'Tariq Hussain',
+    specialization: 'Cardiologist & Heart Specialist',
+    qualification: 'MBBS, MD, DM (Cardiology)',
+    experience: 15,
+    phone: '9797001122',
+    email: 'dr.tariq@alshifa.com',
+    consultationFee: 500,
+    photoUrl: 'https://images.unsplash.com/photo-1537368910025-700350fe46c7?auto=format&fit=crop&q=80&w=300',
+    availableDays: ['Tuesday', 'Thursday', 'Saturday'],
+    availableTime: '10:00 AM - 02:00 PM',
+    about: 'Senior Consultant Cardiologist providing advanced cardiovascular care and ECG.',
+    languages: ['English', 'Kashmiri', 'Urdu', 'Hindi'],
+    active: true,
+    createdAt: new Date().toISOString()
+  }
+];
+
 const loadCache = <T,>(key: string, fallback: T): T => {
   try {
     const cached = localStorage.getItem(`medibrid_cache_${key}`);
-    if (cached) return JSON.parse(cached);
+    if (cached) {
+      const parsed = JSON.parse(cached);
+      if (Array.isArray(parsed) && parsed.length === 0 && Array.isArray(fallback) && fallback.length > 0) {
+        return fallback;
+      }
+      return parsed;
+    }
   } catch (e) {
     console.warn(`Failed to read cache for ${key}`, e);
   }
@@ -336,6 +504,87 @@ export const safeGetDoc = async (docRef: any) => {
   }
 };
 
+export const safeAddDoc = async (collRef: any, data: any) => {
+  const fallbackId = `local-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`;
+  if (isFirestoreQuotaExhausted) {
+    return { id: fallbackId };
+  }
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 1200));
+    const result: any = await Promise.race([addDoc(collRef, data), timeout]);
+    return result || { id: fallbackId };
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      if (!isFirestoreQuotaExhausted) {
+        isFirestoreQuotaExhausted = true;
+        disableNetwork(db).catch(() => {});
+      }
+    }
+    return { id: fallbackId };
+  }
+};
+
+export const safeSetDoc = async (docRef: any, data: any, options?: any) => {
+  if (isFirestoreQuotaExhausted) return;
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 1200));
+    await Promise.race([setDoc(docRef, data, options), timeout]);
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      if (!isFirestoreQuotaExhausted) {
+        isFirestoreQuotaExhausted = true;
+        disableNetwork(db).catch(() => {});
+      }
+    }
+  }
+};
+
+export const safeUpdateDoc = async (docRef: any, data: any) => {
+  if (isFirestoreQuotaExhausted) return;
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 1200));
+    await Promise.race([updateDoc(docRef, data), timeout]);
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      if (!isFirestoreQuotaExhausted) {
+        isFirestoreQuotaExhausted = true;
+        disableNetwork(db).catch(() => {});
+      }
+    }
+  }
+};
+
+export const safeDeleteDoc = async (docRef: any) => {
+  if (isFirestoreQuotaExhausted) return;
+  try {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('Operation timeout')), 1200));
+    await Promise.race([deleteDoc(docRef), timeout]);
+  } catch (err: any) {
+    if (
+      err?.code === 'resource-exhausted' ||
+      err?.message?.includes('Quota exceeded') ||
+      err?.message?.includes('resource-exhausted')
+    ) {
+      if (!isFirestoreQuotaExhausted) {
+        isFirestoreQuotaExhausted = true;
+        disableNetwork(db).catch(() => {});
+      }
+    }
+  }
+};
+
 export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [role, setRole] = useState<UserRole | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
@@ -343,14 +592,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
 
   const [users, setUsers] = useState<UserProfile[]>(() => loadCache('users', []));
-  const [clinics, setClinics] = useState<Clinic[]>(() => loadCache('clinics', []));
-  const [doctors, setDoctors] = useState<Doctor[]>(() => loadCache('doctors', []));
+  const [clinics, setClinics] = useState<Clinic[]>(() => loadCache('clinics', DEFAULT_CLINICS));
+  const [doctors, setDoctors] = useState<Doctor[]>(() => loadCache('doctors', DEFAULT_DOCTORS));
   const [laboratories, setLaboratories] = useState<Laboratory[]>(() => loadCache('laboratories', []));
   const [appointments, setAppointments] = useState<Appointment[]>(() => loadCache('appointments', []));
   const [reviews, setReviews] = useState<Review[]>([]);
-  const [banners, setBanners] = useState<Banner[]>(() => loadCache('banners', []));
+  const [banners, setBanners] = useState<Banner[]>(() => loadCache('banners', DEFAULT_BANNERS));
   const [chats, setChats] = useState<Chat[]>(() => loadCache('chats', []));
-  const [categories, setCategories] = useState<Category[]>(() => loadCache('categories', []));
+  const [categories, setCategories] = useState<Category[]>(() => loadCache('categories', DEFAULT_CATEGORIES));
   const [districts, setDistricts] = useState<District[]>(() => loadCache('districts', DEFAULT_DISTRICTS));
 
   const [patientTab, setPatientTab] = useState<'home' | 'discover' | 'appointments' | 'profile' | 'messages'>('home');
@@ -725,7 +974,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       updatedAt: new Date().toISOString(),
     };
     setClinics(prev => {
-      const updated = [...prev, newClinic];
+      const updated = [newClinic, ...prev];
       saveCache('clinics', updated);
       return updated;
     });
@@ -733,26 +982,30 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUserProfile(prev => prev ? { ...prev, role: 'clinic_owner' } : null);
       setRole('clinic_owner');
     }
-    try {
-      const ref = await addDoc(collection(db, 'clinics'), {
-        ...clinicData,
-        ownerId: firebaseUser.uid,
-        createdAt: newClinic.createdAt,
-        updatedAt: newClinic.updatedAt
+
+    const docRef = await safeAddDoc(collection(db, 'clinics'), {
+      ...clinicData,
+      ownerId: firebaseUser.uid,
+      createdAt: newClinic.createdAt,
+      updatedAt: newClinic.updatedAt
+    });
+
+    if (docRef?.id && docRef.id !== tempId) {
+      setClinics(prev => {
+        const updated = prev.map(c => c.id === tempId ? { ...c, id: docRef.id } : c);
+        saveCache('clinics', updated);
+        return updated;
       });
-      setClinics(prev => prev.map(c => c.id === tempId ? { ...c, id: ref.id } : c));
-      if (userProfile?.role !== 'clinic_owner') {
-        await setDoc(doc(db, 'users', firebaseUser.uid), { role: 'clinic_owner' }, { merge: true }).catch(() => {});
-      }
-    } catch (err) {
-      console.warn("Clinic creation notice (saved locally):", err);
+    }
+
+    if (userProfile?.role !== 'clinic_owner') {
+      safeSetDoc(doc(db, 'users', firebaseUser.uid), { role: 'clinic_owner' }, { merge: true });
     }
   };
 
   const updateClinic = async (clinicId: string, updates: Partial<Clinic>) => {
     if (!firebaseUser) return;
 
-    // Sanitize updates to strip out undefined values
     const cleanUpdates: Record<string, any> = {};
     Object.keys(updates).forEach(key => {
       const val = (updates as any)[key];
@@ -770,113 +1023,146 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     setSelectedClinic(prev => (prev && prev.id === clinicId) ? { ...prev, ...cleanUpdates } : prev);
 
-    try {
-      await setDoc(doc(db, 'clinics', clinicId), cleanUpdates, { merge: true });
-    } catch (err) {
-      console.warn("Clinic update notice (saved locally):", err);
-    }
+    safeSetDoc(doc(db, 'clinics', clinicId), cleanUpdates, { merge: true });
   };
 
   const addDoctor = async (doctorData: Omit<Doctor, 'id' | 'clinicId' | 'createdAt'>) => {
-    if (!firebaseUser) return;
-    const myClinic = clinics.find(c => c.ownerId === firebaseUser.uid);
-    if (!myClinic) return;
+    if (!firebaseUser) throw new Error("Please log in to add a doctor.");
+    
+    // Find matching clinic or fallback
+    let myClinic = clinics.find(c => c.ownerId === firebaseUser.uid) || 
+                   clinics.find(c => c.id === userProfile?.clinicId) || 
+                   selectedClinic || 
+                   clinics[0];
+
+    let clinicId = myClinic?.id;
+    if (!clinicId) {
+      const newClinicObj: Clinic = {
+        id: `clinic-${Date.now()}`,
+        ownerId: firebaseUser.uid,
+        clinicName: userProfile?.clinicName || 'MediBridge Clinic',
+        clinicType: 'General Clinic',
+        description: 'Healthcare & OPD Facility',
+        phone: userProfile?.phone || '9876543210',
+        email: firebaseUser.email || '',
+        address: 'Main Market Road',
+        city: 'Srinagar',
+        district: 'srinagar',
+        state: 'Jammu & Kashmir',
+        pinCode: '190001',
+        waitingPatients: 0,
+        emergencyAvailable: true,
+        services: ['General OPD', 'Consultation'],
+        specializations: ['General Medicine'],
+        status: 'active',
+        verified: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      };
+      setClinics(prev => {
+        const updated = [newClinicObj, ...prev];
+        saveCache('clinics', updated);
+        return updated;
+      });
+      clinicId = newClinicObj.id;
+    }
+
     const tempId = `doc-${Date.now()}`;
     const newDocObj: Doctor = {
       ...doctorData,
       id: tempId,
-      clinicId: myClinic.id,
+      clinicId: clinicId,
       createdAt: new Date().toISOString(),
     };
+
     setDoctors(prev => {
-      const updated = [...prev, newDocObj];
+      const updated = [newDocObj, ...prev];
       saveCache('doctors', updated);
       return updated;
     });
-    try {
-      const ref = await addDoc(collection(db, 'doctors'), {
-        ...doctorData,
-        clinicId: myClinic.id,
-        createdAt: newDocObj.createdAt,
+
+    const docRef = await safeAddDoc(collection(db, 'doctors'), {
+      ...doctorData,
+      clinicId: clinicId,
+      createdAt: newDocObj.createdAt,
+    });
+
+    if (docRef?.id && docRef.id !== tempId) {
+      setDoctors(prev => {
+        const updated = prev.map(d => d.id === tempId ? { ...d, id: docRef.id } : d);
+        saveCache('doctors', updated);
+        return updated;
       });
-      setDoctors(prev => prev.map(d => d.id === tempId ? { ...d, id: ref.id } : d));
-    } catch (err) {
-      console.warn("Doctor addition notice (saved locally):", err);
     }
   };
 
   const deleteDoctor = async (doctorId: string) => {
-    if (!firebaseUser) return;
     setDoctors(prev => {
       const updated = prev.filter(d => d.id !== doctorId);
       saveCache('doctors', updated);
       return updated;
     });
-    try {
-      await deleteDoc(doc(db, 'doctors', doctorId));
-    } catch (err) {
-      console.warn("Doctor deletion notice (saved locally):", err);
-    }
+    safeDeleteDoc(doc(db, 'doctors', doctorId));
   };
 
   const addLaboratory = async (labData: Omit<Laboratory, 'id' | 'clinicId' | 'createdAt'>) => {
-    if (!firebaseUser) return;
-    const myClinic = clinics.find(c => c.ownerId === firebaseUser.uid);
-    if (!myClinic) return;
+    if (!firebaseUser) throw new Error("Please log in to add a laboratory.");
+    let myClinic = clinics.find(c => c.ownerId === firebaseUser.uid) || 
+                   clinics.find(c => c.id === userProfile?.clinicId) || 
+                   selectedClinic || 
+                   clinics[0];
+
+    const clinicId = myClinic?.id || 'clinic-1';
     const tempId = `lab-${Date.now()}`;
     const newLabObj: Laboratory = {
       ...labData,
       id: tempId,
-      clinicId: myClinic.id,
+      clinicId: clinicId,
       createdAt: new Date().toISOString(),
     };
+
     setLaboratories(prev => {
-      const updated = [...prev, newLabObj];
+      const updated = [newLabObj, ...prev];
       saveCache('laboratories', updated);
       return updated;
     });
-    try {
-      const ref = await addDoc(collection(db, 'laboratories'), {
-        ...labData,
-        clinicId: myClinic.id,
-        createdAt: newLabObj.createdAt,
+
+    const docRef = await safeAddDoc(collection(db, 'laboratories'), {
+      ...labData,
+      clinicId: clinicId,
+      createdAt: newLabObj.createdAt,
+    });
+
+    if (docRef?.id && docRef.id !== tempId) {
+      setLaboratories(prev => {
+        const updated = prev.map(l => l.id === tempId ? { ...l, id: docRef.id } : l);
+        saveCache('laboratories', updated);
+        return updated;
       });
-      setLaboratories(prev => prev.map(l => l.id === tempId ? { ...l, id: ref.id } : l));
-    } catch (err) {
-      console.warn("Laboratory addition notice (saved locally):", err);
     }
   };
 
   const deleteLaboratory = async (labId: string) => {
-    if (!firebaseUser) return;
     setLaboratories(prev => {
       const updated = prev.filter(l => l.id !== labId);
       saveCache('laboratories', updated);
       return updated;
     });
-    try {
-      await deleteDoc(doc(db, 'laboratories', labId));
-    } catch (err) {
-      console.warn("Laboratory deletion notice (saved locally):", err);
-    }
+    safeDeleteDoc(doc(db, 'laboratories', labId));
   };
 
   const updateClinicWaitingPatients = async (clinicId: string, count: number) => {
     const safeCount = Math.max(0, count);
-    const targetClinic = clinics.find(c => c.id === clinicId);
 
     setClinics(prev => {
-      const updated = prev.map(c => c.id === clinicId ? { ...c, waitingPatients: safeCount } : c);
+      const updated = prev.map(c => c.id === clinicId ? { ...c, waitingPatients: safeCount, updatedAt: new Date().toISOString() } : c);
       saveCache('clinics', updated);
       return updated;
     });
-    setSelectedClinic(prev => (prev && prev.id === clinicId) ? { ...prev, waitingPatients: safeCount } : prev);
 
-    try {
-      await updateDoc(doc(db, 'clinics', clinicId), { waitingPatients: safeCount, updatedAt: new Date().toISOString() });
-    } catch (err) {
-      console.warn("Clinic queue notice (saved locally):", err);
-    }
+    setSelectedClinic(prev => (prev && prev.id === clinicId) ? { ...prev, waitingPatients: safeCount, updatedAt: new Date().toISOString() } : prev);
+
+    safeUpdateDoc(doc(db, 'clinics', clinicId), { waitingPatients: safeCount, updatedAt: new Date().toISOString() });
 
     // Send notifications to patients holding active OPD tokens for this clinic
     try {
@@ -885,6 +1171,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         (a.status === 'confirmed' || a.status === 'upcoming')
       );
 
+      const targetClinic = clinics.find(c => c.id === clinicId) || selectedClinic;
+
       for (const apt of activeClinicApts) {
         if (!apt.patientId) continue;
         const patientUser = users.find(u => u.uid === apt.patientId);
@@ -892,7 +1180,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         
         sendAppNotification(
           `📢 OPD Queue Position Updated! (Token #${apt.tokenNumber || '—'})`,
-          `Clinic Queue Update: ${safeCount} patient(s) currently ahead at ${targetClinic?.clinicName || 'Clinic'}. Projected wait time: ~${estWaitMins} mins.`,
+          `Clinic Queue Update: ${safeCount} patient(s) currently waiting at ${targetClinic?.clinicName || 'Clinic'}. Projected wait: ~${estWaitMins} mins.`,
           apt.patientId,
           patientUser?.fcmToken
         );
@@ -908,11 +1196,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       saveCache('appointments', updated);
       return updated;
     });
-    try {
-      await updateDoc(doc(db, 'appointments', appointmentId), { status, updatedAt: new Date().toISOString() });
-    } catch (err) {
-      console.warn("Appointment status notice (saved locally):", err);
-    }
+    safeUpdateDoc(doc(db, 'appointments', appointmentId), { status, updatedAt: new Date().toISOString() });
   };
 
   const createBooking = async (appointmentData: Omit<Appointment, 'id' | 'patientId' | 'createdAt'> & { patientName?: string; patientPhone?: string }): Promise<Appointment> => {
@@ -923,13 +1207,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     const name = appointmentData.patientName || userProfile?.name || firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'Patient';
     const phone = appointmentData.patientPhone || userProfile?.phone || '';
 
-    // Calculate Token Number automatically: (current clinic waiting patients || 0) + 1
-    const targetClinic = clinics.find(c => c.id === appointmentData.clinicId);
+    // Calculate Token Number automatically
+    const targetClinic = clinics.find(c => c.id === appointmentData.clinicId) || selectedClinic || clinics[0];
     const currentWaiting = targetClinic?.waitingPatients ?? 0;
     const tokenNumber = currentWaiting + 1;
 
     const newAptData = {
-      clinicId: appointmentData.clinicId || '',
+      clinicId: appointmentData.clinicId || targetClinic?.id || 'clinic-1',
       doctorId: appointmentData.doctorId || '',
       doctorName: appointmentData.doctorName || (targetClinic ? targetClinic.clinicName : 'OPD Doctor'),
       serviceName: appointmentData.serviceName || 'OPD Consultation',
@@ -945,26 +1229,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createdAt: new Date().toISOString(),
     };
 
-    let createdApt: Appointment;
-
-    try {
-      const docRef = await addDoc(collection(db, 'appointments'), newAptData);
-      createdApt = { id: docRef.id, ...newAptData };
-    } catch (err) {
-      console.warn("Booking notice (saved locally):", err);
-      const tempId = `apt-${Date.now()}`;
-      createdApt = { id: tempId, ...newAptData };
-    }
+    const docRef = await safeAddDoc(collection(db, 'appointments'), newAptData);
+    const createdApt: Appointment = { id: docRef?.id || `apt-${Date.now()}`, ...newAptData };
 
     setAppointments(prev => {
-      const updated = [...prev, createdApt];
+      const updated = [createdApt, ...prev];
       saveCache('appointments', updated);
       return updated;
     });
 
-    // Update clinic waiting queue count in Firestore & local state
-    if (appointmentData.clinicId) {
-      updateClinicWaitingPatients(appointmentData.clinicId, tokenNumber);
+    // Update clinic waiting queue count in local state & cache instantly
+    const targetClinicId = appointmentData.clinicId || targetClinic?.id;
+    if (targetClinicId) {
+      updateClinicWaitingPatients(targetClinicId, tokenNumber);
     }
 
     // Send notification to Patient
@@ -1000,11 +1277,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const updateUserStatus = async (uid: string, status: 'active' | 'blocked') => {
     if (userProfile?.role !== 'admin') return;
     setUsers(prev => prev.map(u => u.uid === uid ? { ...u, status } : u));
-    try {
-      await updateDoc(doc(db, 'users', uid), { status, updatedAt: new Date().toISOString() });
-    } catch (err) {
-      console.warn("User status notice (saved locally):", err);
-    }
+    safeUpdateDoc(doc(db, 'users', uid), { status, updatedAt: new Date().toISOString() });
   };
 
   const deleteUser = async (uid: string) => {

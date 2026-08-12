@@ -19,7 +19,7 @@ export const ClinicDashboard: React.FC = () => {
     addLaboratory, deleteLaboratory, sendPushNotification, updateClinicWaitingPatients, updateAppointmentStatus
   } = useApp();
   
-  const myClinic = clinics.find(c => c.ownerId === firebaseUser?.uid);
+  const myClinic = clinics.find(c => c.ownerId === firebaseUser?.uid) || clinics.find(c => c.id === userProfile?.clinicId) || clinics[0];
 
   // New Appointment Bell Chime & Toast Notification
   const [newBookingAlert, setNewBookingAlert] = useState<string | null>(null);
