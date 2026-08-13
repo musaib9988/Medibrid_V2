@@ -1,66 +1,8 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    function isSignedIn() { return request.auth != null; }
-    function isAdmin() { 
-      return isSignedIn() && exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
-             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
-    }
-    
-    match /districts/{districtId} {
+    match /{document=**} {
       allow read, write: if true;
-    }
-
-    match /users/{userId} {
-      allow read: if true; // Allow all to read users to prevent snapshot errors during auth transitions
-      allow write: if isSignedIn();
-    }
-
-    match /clinics/{clinicId} {
-      allow read: if true;
-      allow create: if isSignedIn();
-      allow update, delete: if isSignedIn();
-    }
-
-    match /doctors/{doctorId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /laboratories/{laboratoryId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /notifications/{notificationId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /appointments/{appointmentId} {
-      allow read, write: if isSignedIn();
-    }
-    
-    match /banners/{bannerId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /categories/{categoryId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /reviews/{reviewId} {
-      allow read: if true;
-      allow write: if isSignedIn();
-    }
-
-    match /chats/{chatId} {
-      allow read, write: if isSignedIn();
-      match /messages/{messageId} {
-        allow read, write: if isSignedIn();
-      }
     }
   }
 }

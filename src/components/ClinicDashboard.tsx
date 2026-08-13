@@ -450,7 +450,7 @@ export const ClinicDashboard: React.FC = () => {
             <div className="flex flex-wrap items-center gap-3 bg-white/10 backdrop-blur-md p-3 rounded-2xl border border-white/15 w-full md:w-auto justify-between md:justify-start">
               <div className="flex items-center gap-2">
                 <button 
-                  onClick={() => updateClinicWaitingPatients(myClinic.id, (myClinic.waitingPatients || 0) - 1)}
+                  onClick={() => updateClinicWaitingPatients(myClinic.id, -1)}
                   disabled={(myClinic.waitingPatients || 0) <= 0}
                   className="w-10 h-10 rounded-xl bg-white/10 hover:bg-white/20 disabled:opacity-40 text-white font-black text-lg flex items-center justify-center transition-colors active:scale-95"
                   title="Decrease waiting queue by 1"
@@ -462,7 +462,7 @@ export const ClinicDashboard: React.FC = () => {
                   <p className="text-[10px] text-teal-200 font-bold uppercase tracking-wider">Waiting</p>
                 </div>
                 <button 
-                  onClick={() => updateClinicWaitingPatients(myClinic.id, (myClinic.waitingPatients || 0) + 1)}
+                  onClick={() => updateClinicWaitingPatients(myClinic.id, 1)}
                   className="w-10 h-10 rounded-xl bg-teal-500 hover:bg-teal-400 text-slate-950 font-black text-lg flex items-center justify-center transition-colors active:scale-95 shadow-sm"
                   title="Increase waiting queue by 1"
                 >
@@ -475,8 +475,8 @@ export const ClinicDashboard: React.FC = () => {
               <button 
                 onClick={() => {
                   if ((myClinic.waitingPatients || 0) > 0) {
-                    updateClinicWaitingPatients(myClinic.id, (myClinic.waitingPatients || 0) - 1);
-                    setNewBookingAlert(`📢 Calling Next Patient in Queue! (${(myClinic.waitingPatients || 0) - 1} patients remaining)`);
+                    updateClinicWaitingPatients(myClinic.id, -1);
+                    setNewBookingAlert(`📢 Calling Next Patient in Queue!`);
                   }
                 }}
                 disabled={(myClinic.waitingPatients || 0) <= 0}
@@ -486,7 +486,7 @@ export const ClinicDashboard: React.FC = () => {
               </button>
 
               <button 
-                onClick={() => updateClinicWaitingPatients(myClinic.id, 0)}
+                onClick={() => updateClinicWaitingPatients(myClinic.id, 'reset')}
                 className="text-[11px] font-bold text-teal-200 hover:text-white bg-white/10 px-3 py-2.5 rounded-xl transition-colors"
                 title="Reset queue to 0"
               >
