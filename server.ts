@@ -1,6 +1,7 @@
 import express from "express";
 import path from "path";
 import { createServer as createViteServer } from "vite";
+import { GoogleGenAI, Type } from "@google/genai";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
 async function startServer() {
@@ -124,6 +125,71 @@ async function startServer() {
     } catch (error: any) {
       console.error("FCM Error:", error);
       res.json({ success: true, message: "Notification handled in-app." });
+    }
+  });
+
+  // Health Tip of the Day Route (Gemini API)
+  app.get("/api/health-tip", async (req, res) => {
+    try {
+      if (process.env.GEMINI_API_KEY) {
+        try {
+          const aiClient = new GoogleGenAI({
+            apiKey: process.env.GEMINI_API_KEY,
+            httpOptions: { headers: { 'User-Agent': 'aistudio-build' } }
+          });
+
+          const response = await aiClient.models.generateContent({
+            model: "gemini-3.6-flash",
+            contents: "Generate a daily health and wellness tip specifically tailored for people living in Jammu & Kashmir, considering local climate, seasonal health care, and traditional wellness advice. Return JSON with keys: title, category, tip.",
+            config: {
+              responseMimeType: "application/json",
+              responseSchema: {
+                type: Type.OBJECT,
+                properties: {
+                  title: { type: Type.STRING },
+                  category: { type: Type.STRING },
+                  tip: { type: Type.STRING }
+                },
+                required: ["title", "category", "tip"]
+              }
+            }
+          });
+
+          if (response.text) {
+            const data = JSON.parse(response.text);
+            return res.json(data);
+          }
+        } catch (e) {
+          console.warn("Gemini health tip generation fallback used:", e);
+        }
+      }
+
+      // Fallback health tip for J&K
+      const fallbackTips = [
+        {
+          title: "Winter Joint & Arthritis Care in Kashmir",
+          category: "Seasonal Care",
+          tip: "During cold winter months in J&K, keep joints warm with thermal layers, stay hydrated, and engage in gentle indoor stretching to maintain synovial fluid circulation and reduce stiffness."
+        },
+        {
+          title: "Saffron & Honey Immunity Boost",
+          category: "Nutrition & Immunity",
+          tip: "Incorporate warm Kashmiri Kahwa with a pinch of saffron and crushed almonds to boost antioxidant levels and support respiratory health during chilly mornings."
+        },
+        {
+          title: "Cardio Health in Mountain Altitude",
+          category: "Heart & Fitness",
+          tip: "When engaging in outdoor walks or hiking in valley terrains, maintain a steady breathing pace to allow your cardiovascular system to comfortably adapt to altitude oxygen levels."
+        }
+      ];
+      const randomTip = fallbackTips[Math.floor(Math.random() * fallbackTips.length)];
+      return res.json(randomTip);
+    } catch (err) {
+      res.json({
+        title: "Daily Wellness Tip",
+        category: "General Health",
+        tip: "Drink plenty of lukewarm water throughout the day and ensure 7-8 hours of restful sleep to maintain robust immune health."
+      });
     }
   });
 

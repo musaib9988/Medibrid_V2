@@ -46,10 +46,10 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, id, badge, activeT
 
 export const AdminPanel: React.FC = () => {
   const { 
-    users, clinics, doctors, laboratories, appointments, userProfile, banners, categories, districts,
+    users, clinics, doctors, laboratories, appointments, userProfile, banners, categories, districts, legalPolicies = [],
     updateUserStatus, deleteUser, deleteClinic, sendPushNotification, updateClinic, logoutUser,
     addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
-    addBanner, deleteBanner, toggleBannerStatus
+    addBanner, deleteBanner, toggleBannerStatus, updateLegalPolicy
   } = useApp();
 
   type AdminTab = 
@@ -68,9 +68,16 @@ export const AdminPanel: React.FC = () => {
     | 'homepage_manager' 
     | 'notifications' 
     | 'audit_log' 
-    | 'settings';
+    | 'settings'
+    | 'legal_policies';
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+
+  // Legal Policies editor state
+  const [selectedPolicyId, setSelectedPolicyId] = useState<string>('shipping_delivery');
+  const [editedPolicyTitle, setEditedPolicyTitle] = useState<string>('');
+  const [editedPolicyContent, setEditedPolicyContent] = useState<string>('');
+  const [policySaveSuccess, setPolicySaveSuccess] = useState<string | null>(null);
 
   // Banner state
   const [newBanner, setNewBanner] = useState({ title: '', imageUrl: '', link: '' });
@@ -254,6 +261,7 @@ export const AdminPanel: React.FC = () => {
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-4">CMS & Engagement</p>
           <NavItem icon={ImageIcon} label="App Banners" id="banners" badge={banners.filter(b => b.active).length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
           <NavItem icon={Edit3} label="Homepage Manager" id="homepage_manager" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem icon={FileText} label="Legal Policies Manager" id="legal_policies" badge={legalPolicies.length || 6} activeTab={activeTab} setActiveTab={setActiveTab} />
           <NavItem icon={Star} label="Reviews Moderation" id="reviews" badge={reviewsList.filter(r => r.status === 'pending').length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
           <NavItem icon={Radio} label="Broadcast Center" id="notifications" activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -1097,7 +1105,16 @@ export const AdminPanel: React.FC = () => {
 
                   {newBanner.imageUrl && (
                     <div className="relative rounded-xl overflow-hidden h-28 border border-slate-200 bg-slate-900">
-                      <img src={newBanner.imageUrl} alt="Preview" className="w-full h-full object-cover opacity-90" />
+                      <img 
+                        src={newBanner.imageUrl} 
+                        alt="Preview" 
+                        className="w-full h-full object-cover opacity-90" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&q=80';
+                        }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/80 via-transparent p-3 flex items-end">
                         <p className="text-white text-xs font-bold">{newBanner.title || 'Banner Title Preview'}</p>
                       </div>
@@ -1132,7 +1149,16 @@ export const AdminPanel: React.FC = () => {
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   {banners.map(b => (
                     <div key={b.id} className="relative rounded-2xl overflow-hidden border border-slate-200 h-40 bg-slate-900 shadow-sm group">
-                      <img src={b.imageUrl} alt={b.title} className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-300" />
+                      <img 
+                        src={b.imageUrl} 
+                        alt={b.title} 
+                        className="w-full h-full object-cover opacity-85 group-hover:scale-105 transition-transform duration-300" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&q=80';
+                        }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent p-4 flex flex-col justify-between text-white">
                         <div className="flex justify-between items-start">
                           <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold border ${b.active !== false ? 'bg-emerald-500/80 text-white border-emerald-400/50' : 'bg-slate-700/80 text-slate-300 border-slate-600'}`}>
@@ -1284,6 +1310,155 @@ export const AdminPanel: React.FC = () => {
                   <input type="text" defaultValue="support@medibrid.in" className="w-full p-2.5 text-xs border rounded-xl" />
                 </div>
                 <button onClick={() => alert('Settings Saved')} className="w-full py-2.5 bg-teal-600 text-white font-bold text-xs rounded-xl">Save Settings</button>
+              </div>
+            </div>
+          )}
+
+          {/* LEGAL POLICIES MANAGER */}
+          {activeTab === 'legal_policies' && (
+            <div className="space-y-6 animate-in fade-in">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+                <div>
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="px-2.5 py-0.5 bg-teal-100 text-teal-800 font-extrabold text-[10px] rounded-full uppercase tracking-wider">CMS Governance</span>
+                    <span className="text-xs text-slate-500">Live Legal Document Manager</span>
+                  </div>
+                  <h2 className="text-xl font-bold text-slate-900">Legal & Compliance Policies Manager</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Manage, update, and publish official policies shown under the Patient App Legal section.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                {/* Policy Selector List */}
+                <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm space-y-2">
+                  <h3 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 mb-3">Select Policy To Edit</h3>
+                  {(legalPolicies || []).map((pol) => {
+                    const isSelected = selectedPolicyId === pol.id;
+                    return (
+                      <button
+                        key={pol.id}
+                        onClick={() => {
+                          setSelectedPolicyId(pol.id);
+                          setEditedPolicyTitle(pol.title);
+                          setEditedPolicyContent(pol.content);
+                          setPolicySaveSuccess(null);
+                        }}
+                        className={`w-full text-left p-3.5 rounded-xl border transition-all flex items-start justify-between gap-3 ${
+                          isSelected
+                            ? 'bg-teal-50/90 border-teal-500/80 shadow-xs'
+                            : 'bg-white border-slate-100 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div>
+                          <h4 className={`text-xs font-bold ${isSelected ? 'text-teal-900' : 'text-slate-800'}`}>
+                            {pol.title}
+                          </h4>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            Updated: {new Date(pol.updatedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short' })}
+                          </p>
+                        </div>
+                        <CheckCircle2 className={`w-4 h-4 shrink-0 mt-0.5 ${isSelected ? 'text-teal-600' : 'text-slate-200'}`} />
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Editor Panel */}
+                <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 p-6 shadow-sm space-y-5">
+                  {(() => {
+                    const activePol = legalPolicies.find(p => p.id === selectedPolicyId) || legalPolicies[0];
+                    if (!activePol) return <div className="text-slate-500 text-xs">No policy selected.</div>;
+
+                    const currentTitle = editedPolicyTitle !== '' ? editedPolicyTitle : activePol.title;
+                    const currentContent = editedPolicyContent !== '' ? editedPolicyContent : activePol.content;
+
+                    return (
+                      <div className="space-y-4">
+                        {policySaveSuccess && (
+                          <div className="bg-emerald-50 border border-emerald-200 text-emerald-800 p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in">
+                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                            {policySaveSuccess}
+                          </div>
+                        )}
+
+                        <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase text-slate-400 tracking-wider">Editing Document ID: {activePol.id}</span>
+                            <h3 className="text-base font-bold text-slate-900">Edit Policy Content</h3>
+                          </div>
+                          <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-3 py-1 rounded-full">
+                            Last Saved: {new Date(activePol.updatedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">Policy Display Title</label>
+                          <input
+                            type="text"
+                            value={currentTitle}
+                            onChange={(e) => setEditedPolicyTitle(e.target.value)}
+                            className="w-full p-3 text-xs font-bold border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none"
+                            placeholder="Policy Title..."
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-xs font-bold text-slate-700 mb-1.5">Policy Terms & Body Content</label>
+                          <textarea
+                            rows={10}
+                            value={currentContent}
+                            onChange={(e) => setEditedPolicyContent(e.target.value)}
+                            className="w-full p-3.5 text-xs font-medium text-slate-800 border border-slate-200 rounded-xl focus:ring-2 focus:ring-teal-500 focus:outline-none leading-relaxed"
+                            placeholder="Enter detailed legal terms, numbered clauses, and delivery/refund conditions..."
+                          />
+                        </div>
+
+                        <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
+                          <button
+                            onClick={async () => {
+                              await updateLegalPolicy(activePol.id, {
+                                title: currentTitle,
+                                content: currentContent
+                              });
+                              setPolicySaveSuccess(`"${currentTitle}" updated and published live successfully!`);
+                              setTimeout(() => setPolicySaveSuccess(null), 4000);
+                            }}
+                            className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-6 py-3 rounded-xl shadow-md transition-all flex items-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Save & Publish Live Policy
+                          </button>
+
+                          <button
+                            onClick={() => {
+                              setEditedPolicyTitle(activePol.title);
+                              setEditedPolicyContent(activePol.content);
+                              setPolicySaveSuccess(null);
+                            }}
+                            className="text-xs font-bold text-slate-500 hover:text-slate-800 px-4 py-2 bg-slate-100 rounded-xl transition-colors"
+                          >
+                            Discard Unsaved Changes
+                          </button>
+                        </div>
+
+                        {/* Live Patient Preview Box */}
+                        <div className="mt-6 pt-5 border-t border-slate-200/80">
+                          <p className="text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-3 flex items-center gap-1.5">
+                            <ShieldCheck className="w-3.5 h-3.5 text-teal-600" /> Patient View Live Preview
+                          </p>
+                          <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-3 max-h-56 overflow-y-auto">
+                            <div className="flex items-center gap-2 bg-teal-100/60 p-2.5 rounded-xl border border-teal-200">
+                              <ShieldCheck className="w-4 h-4 text-teal-800 shrink-0" />
+                              <span className="text-xs font-bold text-teal-900">{currentTitle}</span>
+                            </div>
+                            <div className="whitespace-pre-wrap text-[11px] text-slate-700 font-medium leading-relaxed bg-white p-3 rounded-xl border border-slate-100">
+                              {currentContent}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })()}
+                </div>
               </div>
             </div>
           )}

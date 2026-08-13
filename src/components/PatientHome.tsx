@@ -6,7 +6,7 @@ import {
   Home, Compass, Calendar, User, Map as MapIcon, MessageSquare, LogOut, Grid, 
   Bell, Maximize2, ChevronRight, QrCode, FileText, Receipt, RefreshCw, XCircle, 
   Shield, FileCheck, Tag, Share2, ShieldCheck, RotateCcw, Brain, Eye, Activity, Truck,
-  Clock, Timer, Users, X
+  Clock, Timer, Users, X, Sparkles
 } from 'lucide-react';
 import { ClinicProfileView } from './ClinicProfileView';
 import { MessagesTab } from './MessagesTab';
@@ -203,13 +203,13 @@ function getAppointmentTargetDate(dateStr?: string, timeSlotStr?: string): Date 
 }
 
 export const PatientHome: React.FC = () => {
-  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, updateAppointmentStatus, openAuthModal, appointments = [] } = useApp();
+  const { clinics, userProfile, selectedClinic, setSelectedClinic, patientTab, setPatientTab, logoutUser, firebaseUser, requestPermissions, banners, districts, sendPushNotification, updateAppointmentStatus, openAuthModal, appointments = [], legalPolicies = [] } = useApp();
   const [searchQuery, setSearchQuery] = useState('');
   const [activeCategory, setActiveCategory] = useState<string>('all');
   const [bookingStatusFilter, setBookingStatusFilter] = useState<'all' | 'active' | 'completed' | 'cancelled'>('all');
   const [permissionLoading, setPermissionLoading] = useState(false);
   const [dismissedPrompt, setDismissedPrompt] = useState(false);
-  const [activeProfileModal, setActiveProfileModal] = useState<{title: string, subtitle?: string} | null>(null);
+  const [activeProfileModal, setActiveProfileModal] = useState<{title: string, subtitle?: string, policyId?: string} | null>(null);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [customLocationInput, setCustomLocationInput] = useState('');
@@ -218,6 +218,31 @@ export const PatientHome: React.FC = () => {
     minutesLeft: number;
   } | null>(null);
   const [dismissedAlerts, setDismissedAlerts] = useState<string[]>([]);
+  const [healthTip, setHealthTip] = useState<{ title: string; category: string; tip: string } | null>(null);
+  const [healthTipLoading, setHealthTipLoading] = useState(true);
+
+  const fetchHealthTip = async () => {
+    setHealthTipLoading(true);
+    try {
+      const res = await fetch('/api/health-tip');
+      const data = await res.json();
+      if (data && data.tip) {
+        setHealthTip(data);
+      }
+    } catch (e) {
+      setHealthTip({
+        title: "Kashmiri Herbal & Wellness Care",
+        category: "Seasonal Care",
+        tip: "Stay warm and hydrated during chilly valley mornings. Warm Kashmiri Kahwa with a hint of saffron supports respiratory comfort and immunity."
+      });
+    } finally {
+      setHealthTipLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchHealthTip();
+  }, []);
 
   const activeAppointment = (appointments || []).find(a => 
     a && (a.patientId === firebaseUser?.uid || a.patientId === userProfile?.uid) &&
@@ -606,7 +631,16 @@ export const PatientHome: React.FC = () => {
                 <div className="flex overflow-x-auto gap-4 pb-2 -mx-4 px-4 snap-x snap-mandatory no-scrollbar">
                   {banners.filter(b => b.active).map(banner => (
                     <div key={banner.id} className="min-w-[85vw] md:min-w-[400px] h-[180px] snap-center shrink-0 rounded-[32px] overflow-hidden relative shadow-md bg-slate-900">
-                      <img src={banner.imageUrl} alt={banner.title} className="w-full h-full object-cover opacity-90" />
+                      <img 
+                        src={banner.imageUrl} 
+                        alt={banner.title} 
+                        className="w-full h-full object-cover opacity-90" 
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.onerror = null;
+                          target.src = 'https://images.unsplash.com/photo-1579684385127-1ef15d508118?w=800&q=80';
+                        }}
+                      />
                       <div className="absolute inset-0 bg-gradient-to-t from-slate-900/80 via-slate-900/10 to-transparent flex flex-col justify-end p-5">
                         <h2 className="text-white text-xl font-bold mb-3">{banner.title}</h2>
                         {banner.link ? (
@@ -654,6 +688,48 @@ export const PatientHome: React.FC = () => {
                   </div>
                 ))}
               </div>
+            </div>
+
+            {/* Health Tip of the Day (Gemini AI Powered) */}
+            <div className="mb-8 bg-gradient-to-br from-teal-50 via-emerald-50/50 to-teal-100/60 rounded-[24px] p-5 border border-teal-200 shadow-sm relative overflow-hidden">
+              <div className="absolute top-0 right-0 w-32 h-32 bg-teal-200/30 rounded-full blur-2xl pointer-events-none"></div>
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-10 h-10 rounded-2xl bg-[#2D8C7C] text-white flex items-center justify-center shadow-md shrink-0">
+                    <Sparkles className="w-5 h-5 animate-pulse" />
+                  </div>
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-extrabold tracking-wider text-teal-800 uppercase bg-teal-200/70 px-2.5 py-0.5 rounded-full">
+                        {healthTip?.category || 'AI Health Tip'}
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-medium">J&K Daily Advisory</span>
+                    </div>
+                    <h4 className="font-bold text-slate-900 text-base mt-0.5">
+                      {healthTipLoading ? 'Generating daily health wisdom...' : (healthTip?.title || 'Kashmiri Wellness & Preventive Care')}
+                    </h4>
+                  </div>
+                </div>
+                <button
+                  onClick={fetchHealthTip}
+                  disabled={healthTipLoading}
+                  className="w-8 h-8 rounded-full bg-white hover:bg-teal-50 text-teal-700 flex items-center justify-center shadow-xs border border-teal-200 transition-all shrink-0"
+                  title="Refresh Health Tip"
+                >
+                  <RefreshCw className={`w-4 h-4 ${healthTipLoading ? 'animate-spin' : ''}`} />
+                </button>
+              </div>
+
+              {healthTipLoading ? (
+                <div className="space-y-2 py-2 animate-pulse">
+                  <div className="h-3.5 bg-teal-200/60 rounded w-full"></div>
+                  <div className="h-3.5 bg-teal-200/60 rounded w-4/5"></div>
+                </div>
+              ) : (
+                <p className="text-xs text-slate-700 leading-relaxed font-medium bg-white/70 backdrop-blur-xs p-3.5 rounded-xl border border-teal-100/80 shadow-2xs">
+                  "{healthTip?.tip || 'Stay active, maintain a balanced diet with local seasonal produce, and consult verified specialists on MediBrid for any persistent medical concerns.'}"
+                </p>
+              )}
             </div>
 
             {/* Appointment Track Section */}
@@ -723,6 +799,26 @@ export const PatientHome: React.FC = () => {
             </div>
           </>
         )}
+
+        {/* Scrolling Photos Banner Marquee */}
+        <div className="mt-8 mb-4 relative overflow-hidden rounded-3xl shadow-sm bg-slate-900 border border-slate-800 py-3">
+          <div className="animate-marquee whitespace-nowrap flex items-center gap-4 px-2">
+            {[
+              '1782232191368.jpg',
+              '1782229544546.png',
+              'file_0000000022c071f8ac319fa1661205bb.png',
+              'file_0000000093ec7208bf08e2befcdae999.png',
+              '1782232191368.jpg',
+              '1782229544546.png',
+              'file_0000000022c071f8ac319fa1661205bb.png',
+              'file_0000000093ec7208bf08e2befcdae999.png'
+            ].map((img, idx) => (
+              <div key={idx} className="shrink-0 w-[85vw] md:w-[400px] h-[180px] rounded-[24px] overflow-hidden relative shadow-md bg-slate-800 border border-slate-700">
+                <img src={`/${img}`} alt={`Promo Banner ${idx}`} className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     )}
 
@@ -1073,12 +1169,12 @@ export const PatientHome: React.FC = () => {
                   Legal
                 </h3>
                 <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
-                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Shipping & Medicine Delivery Policy"})} icon={<Truck />} title="Shipping & Medicine Delivery Policy" />
-                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Refund Policy"})} icon={<Receipt />} title="Refund Policy" />
-                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Return Policy"})} icon={<RefreshCw />} title="Return Policy" />
-                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Cancellation Policy"})} icon={<XCircle />} title="Cancellation Policy" />
-                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Privacy Policy"})} icon={<Shield />} title="Privacy Policy" />
-                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Terms and Conditions"})} icon={<FileCheck />} title="Terms and Conditions" isLast />
+                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Shipping & Medicine Delivery Policy", policyId: "shipping_delivery"})} icon={<Truck />} title="Shipping & Medicine Delivery Policy" />
+                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Refund Policy", policyId: "refund_policy"})} icon={<Receipt />} title="Refund Policy" />
+                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Return Policy", policyId: "return_policy"})} icon={<RefreshCw />} title="Return Policy" />
+                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Cancellation Policy", policyId: "cancellation_policy"})} icon={<XCircle />} title="Cancellation Policy" />
+                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Privacy Policy", policyId: "privacy_policy"})} icon={<Shield />} title="Privacy Policy" />
+                  <ProfileMenuItem onClick={() => setActiveProfileModal({title: "Terms and Conditions", policyId: "terms_conditions"})} icon={<FileCheck />} title="Terms and Conditions" isLast />
                 </div>
             </div>
 
@@ -1118,18 +1214,47 @@ export const PatientHome: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-6">
               {activeProfileModal.title === 'Edit Profile' ? (
                 <ProfileEditForm onClose={() => setActiveProfileModal(null)} />
-              ) : (
-                <div className="flex flex-col items-center justify-center h-full text-center">
-                   <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
-                      <FileText className="w-10 h-10" />
-                   </div>
-                   <h3 className="text-lg font-bold text-slate-800 mb-2">No Records Found</h3>
-                   <p className="text-sm text-slate-500 mb-6">You haven't added any documents to {activeProfileModal.title} yet.</p>
-                   <button className="bg-[#2D8C7C] text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-teal-700 transition-colors flex items-center gap-2">
-                      <span className="text-lg leading-none">+</span> Upload New Record
-                   </button>
-                </div>
-              )}
+              ) : (() => {
+                const activePolicy = legalPolicies.find(p => 
+                  p.id === activeProfileModal.policyId || 
+                  p.title.toLowerCase().trim() === activeProfileModal.title.toLowerCase().trim()
+                );
+                if (activePolicy) {
+                  return (
+                    <div className="space-y-4 text-slate-700 text-xs leading-relaxed">
+                      <div className="bg-teal-50 border border-teal-200/80 p-3.5 rounded-2xl flex items-center gap-3 shadow-xs">
+                        <ShieldCheck className="w-5 h-5 text-teal-700 shrink-0" />
+                        <div>
+                          <h4 className="font-bold text-teal-900 text-xs">Verified MediBridge J&K Policy</h4>
+                          <p className="text-[10px] text-teal-700 font-medium">
+                            Last updated: {new Date(activePolicy.updatedAt).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="bg-slate-50/90 border border-slate-200/90 rounded-2xl p-4 space-y-2 whitespace-pre-wrap font-sans text-xs text-slate-800 font-medium leading-relaxed">
+                        {activePolicy.content}
+                      </div>
+
+                      <div className="p-3 bg-slate-100/80 rounded-xl text-[11px] text-slate-500 text-center font-medium">
+                        Need assistance? Contact our team at <a href="mailto:support@medibrid.in" className="text-teal-700 font-bold underline">support@medibrid.in</a>
+                      </div>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="flex flex-col items-center justify-center h-full text-center">
+                     <div className="w-20 h-20 bg-slate-100 rounded-full flex items-center justify-center mb-4 text-slate-400">
+                        <FileText className="w-10 h-10" />
+                     </div>
+                     <h3 className="text-lg font-bold text-slate-800 mb-2">No Records Found</h3>
+                     <p className="text-sm text-slate-500 mb-6">You haven't added any documents to {activeProfileModal.title} yet.</p>
+                     <button className="bg-[#2D8C7C] text-white px-6 py-2.5 rounded-full font-bold shadow-md hover:bg-teal-700 transition-colors flex items-center gap-2">
+                        <span className="text-lg leading-none">+</span> Upload New Record
+                     </button>
+                  </div>
+                );
+              })()}
             </div>
           </div>
         </div>

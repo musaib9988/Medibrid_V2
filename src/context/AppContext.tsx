@@ -17,11 +17,16 @@ const getApiKey = () => {
   return (import.meta as any).env?.VITE_GOOGLE_MAPS_PLATFORM_KEY || '';
 };
 
+let hasFetchedLocation = false;
+
 const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (update: any) => void) => {
   let updates: Partial<UserProfile> = {};
   
-  // 1. Request Geolocation
-  if ('geolocation' in navigator) {
+  // 1. Request Geolocation strictly only once per app open session
+  const locationFetchedStorage = sessionStorage.getItem('medibridge_location_fetched');
+  if (!hasFetchedLocation && !locationFetchedStorage && 'geolocation' in navigator) {
+    hasFetchedLocation = true;
+    sessionStorage.setItem('medibridge_location_fetched', 'true');
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
@@ -119,7 +124,8 @@ import {
   Banner,
   Category,
   Chat,
-  District
+  District,
+  LegalPolicy
 } from '../types';
 
 interface AppContextType {
@@ -138,6 +144,8 @@ interface AppContextType {
   banners: Banner[];
   categories: Category[];
   districts: District[];
+  legalPolicies: LegalPolicy[];
+  updateLegalPolicy: (id: string, updates: Partial<LegalPolicy>) => Promise<void>;
   addDistrict: (data: Partial<District>) => Promise<void>;
   deleteDistrict: (id: string) => Promise<void>;
   toggleDistrictStatus: (id: string, active: boolean) => Promise<void>;
@@ -149,8 +157,8 @@ interface AppContextType {
   // App UI State
   patientTab: 'home' | 'discover' | 'appointments' | 'profile' | 'messages';
   setPatientTab: (tab: 'home' | 'discover' | 'appointments' | 'profile' | 'messages') => void;
-  adminTab: 'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners' | 'categories';
-  setAdminTab: (tab: 'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners' | 'categories') => void;
+  adminTab: 'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners' | 'categories' | 'legal_policies';
+  setAdminTab: (tab: 'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners' | 'categories' | 'legal_policies') => void;
   doctorTab: 'dashboard' | 'doctors' | 'laboratories' | 'appointments' | 'profile' | 'messages';
   setDoctorTab: (tab: 'dashboard' | 'doctors' | 'laboratories' | 'appointments' | 'profile' | 'messages') => void;
 
@@ -245,6 +253,88 @@ const DEFAULT_BANNERS: Banner[] = [
     link: '#discover',
     active: true,
     createdAt: new Date().toISOString()
+  }
+];
+
+export const DEFAULT_LEGAL_POLICIES: LegalPolicy[] = [
+  {
+    id: 'shipping_delivery',
+    title: 'Shipping & Medicine Delivery Policy',
+    content: `MediBridge facilitates prescription medicine and lab report deliveries across Jammu & Kashmir in partnership with verified local pharmacies and diagnostic centers.
+
+1. Delivery Coverage: Standard medicine delivery is available across all 20 districts of J&K including urban and rural townships.
+2. Estimated Delivery Time:
+   - Urban centers (Srinagar, Jammu, Baramulla, Anantnag): Express delivery within 2-4 hours.
+   - Remote & Valley districts (Ganderbal, Kupwara, Poonch, Rajouri): Standard delivery within 12-24 hours.
+3. Cold Chain & Temperature Control: Temperature-sensitive medicines (such as insulin, vaccines, and biologics) are delivered using cold-chain insulated packaging.
+4. Prescription Verification: Orders containing Schedule H / H1 prescription medicines require a valid prescription uploaded by a registered medical doctor prior to dispatch.
+5. Delivery Charges: Standard delivery is FREE on orders above ₹499. Nominal delivery fee of ₹30 applies to orders under ₹499.`,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'refund_policy',
+    title: 'Refund Policy',
+    content: `At MediBridge, customer satisfaction and healthcare trust are our top priorities.
+
+1. OPD Appointment Cancellations:
+   - Full 100% refund for appointment cancellations made at least 1 hour prior to the scheduled token time.
+   - Instant refund credited back to your original payment method or MediBridge wallet.
+2. Lab Tests & Diagnostic Bookings:
+   - 100% refund if cancelled before home sample collection or prior to visiting the diagnostic center.
+3. Damaged or Wrong Medicine Items:
+   - If delivered items are damaged, expired, or incorrect, request a return within 48 hours for a full 100% refund or replacement.
+4. Refund Processing Window: Refunds to original UPI/Bank accounts are processed within 2 to 5 business days.`,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'return_policy',
+    title: 'Return Policy',
+    content: `We accept returns for eligible pharmaceutical and diagnostic items under the following terms:
+
+1. Return Window: Eligible medicine products can be returned within 7 days from the date of delivery.
+2. Sealed & Unopened Condition: Returned medicines must be unused, sealed in original packaging, and accompanied by the original tax invoice.
+3. Non-Returnable Items:
+   - Opened or partially consumed medications.
+   - Temperature-controlled items (Insulin, Injection Vials, Biologicals).
+   - Personal hygiene, diagnostic strips, and surgical instruments.
+4. Inspection & Pickup: Free reverse pickup is conducted by our verified delivery partners.`,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'cancellation_policy',
+    title: 'Cancellation Policy',
+    content: `MediBridge offers a hassle-free cancellation policy across all services:
+
+1. Clinic OPD Appointments:
+   - OPD consultation tokens can be cancelled directly through the app under 'My Bookings'.
+   - No penalty or cancellation fee if cancelled before token call-in.
+2. Pharmacy & Medicine Orders:
+   - Medicine orders can be cancelled anytime before the dispatch status changes to 'Out for Delivery'.
+3. Diagnostic & Lab Sample Collections:
+   - Lab appointments can be rescheduled or cancelled free of charge up to 30 minutes before the technician arrives.`,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'privacy_policy',
+    title: 'Privacy Policy',
+    content: `MediBridge is committed to protecting patient health data and personal privacy under strict healthcare compliance standards.
+
+1. Patient Data Security: All personal health records (PHR), doctor consultations, prescriptions, and lab test results are encrypted using AES-256 bit encryption.
+2. Information Collection: We collect location data (solely once on app open to locate nearby clinics), phone numbers, and booking records to ensure smooth OPD queue management.
+3. No Third-Party Data Selling: We NEVER sell, lease, or share your medical data or contact details with third-party advertising companies.
+4. Access Control: Healthcare providers (doctors and clinics) can only access your prescriptions and medical history with your explicit consent during active appointments.`,
+    updatedAt: new Date().toISOString()
+  },
+  {
+    id: 'terms_conditions',
+    title: 'Terms and Conditions',
+    content: `By using the MediBridge platform, mobile website, or application, you agree to the following terms:
+
+1. Platform Scope: MediBridge acts as an integrated digital healthcare facilitator connecting patients with verified clinics, doctors, laboratories, and pharmacies in Jammu & Kashmir.
+2. Emergency Care Warning: MediBridge is NOT an emergency hospital replacement. In case of life-threatening emergencies, immediately contact state emergency helpline 108 or visit the nearest GMC / Civil Hospital.
+3. User Account Responsibilities: Users are responsible for maintaining the confidentiality of their phone OTP credentials and providing accurate health history.
+4. Registered Practitioners: All clinics and medical practitioners listed on MediBridge undergo identity verification and medical registration checks.`,
+    updatedAt: new Date().toISOString()
   }
 ];
 
@@ -532,9 +622,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [chats, setChats] = useState<Chat[]>([]);
   const [categories, setCategories] = useState<Category[]>(DEFAULT_CATEGORIES);
   const [districts, setDistricts] = useState<District[]>(DEFAULT_DISTRICTS);
+  const [legalPolicies, setLegalPolicies] = useState<LegalPolicy[]>(DEFAULT_LEGAL_POLICIES);
 
   const [patientTab, setPatientTab] = useState<'home' | 'discover' | 'appointments' | 'profile' | 'messages'>('home');
-  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners' | 'categories'>('dashboard');
+  const [adminTab, setAdminTab] = useState<'dashboard' | 'users' | 'clinics' | 'appointments' | 'settings' | 'banners' | 'categories' | 'legal_policies'>('dashboard');
   const [doctorTab, setDoctorTab] = useState<'dashboard' | 'doctors' | 'laboratories' | 'appointments' | 'profile' | 'messages'>('dashboard');
 
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
@@ -636,6 +727,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     let unsubBanners = () => {};
     let unsubCategories = () => {};
     let unsubDistricts = () => {};
+    let unsubLegalPolicies = () => {};
 
     (async () => {
       try {
@@ -713,6 +805,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const res = Array.from(distMap.values());
         setDistricts(res);
       }, "Districts");
+
+      unsubLegalPolicies = attachSafeSnapshot(collection(db, 'legal_policies'), (snap: any) => {
+        const remote = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as LegalPolicy));
+        const polMap = new Map<string, LegalPolicy>();
+        DEFAULT_LEGAL_POLICIES.forEach(p => polMap.set(p.id, p));
+        remote.forEach(p => polMap.set(p.id, p));
+        const res = Array.from(polMap.values());
+        setLegalPolicies(res);
+      }, "LegalPolicies");
     })();
 
     return () => {
@@ -722,6 +823,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       unsubBanners();
       unsubCategories();
       unsubDistricts();
+      unsubLegalPolicies();
     };
   }, []);
 
@@ -778,14 +880,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           setAppointments(fetchedApts);
         }, "Appointments");
 
-        // Realtime Notifications Listener for User
-        const notifQuery = query(collection(db, 'notifications'), where('targetUserId', '==', userId));
+        // Realtime Notifications Listener for All Panels & Roles
+        const notifQuery = query(collection(db, 'notifications'));
         unsubNotifications = attachSafeSnapshot(notifQuery, (snapshot: any) => {
           snapshot.docChanges().forEach((change: any) => {
             if (change.type === 'added') {
               const data = change.doc.data();
               if (data && data.title && data.body) {
-                triggerPushNotificationUI(data.title, data.body);
+                const isForMe = data.targetUserId === userId || data.targetRole === 'all' || (data.targetRole && data.targetRole === userRole);
+                if (isForMe) {
+                  triggerPushNotificationUI(data.title, data.body);
+                }
               }
             }
           });
@@ -1161,6 +1266,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       await updateClinicWaitingPatients(targetClinicId, 1);
     }
 
+    // Send global broadcast push notification for appointment booking completion
+    try {
+      sendPushNotification(
+        "Appointment Booked 🎫",
+        `Patient ${name} successfully booked an OPD appointment at ${targetClinic?.clinicName || 'Clinic'} (Token #${tokenNumber}).`,
+        'all'
+      );
+    } catch (e) {
+      console.warn("Global booking push notice:", e);
+    }
+
     // Send notification to Patient
     try {
       sendAppNotification(
@@ -1408,10 +1524,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
+  const updateLegalPolicy = async (id: string, updates: Partial<LegalPolicy>) => {
+    const updatedDoc = {
+      ...updates,
+      updatedAt: new Date().toISOString()
+    };
+    setLegalPolicies(prev => prev.map(p => p.id === id ? { ...p, ...updatedDoc } : p));
+    try {
+      await safeSetDoc(doc(db, 'legal_policies', id), updatedDoc, { merge: true });
+    } catch (error) {
+      console.error("Error updating legal policy:", error);
+    }
+  };
+
   return (
     <AppContext.Provider value={{
       role, firebaseUser, userProfile, googleAccessToken,
-      users, clinics, doctors, laboratories, appointments, reviews, banners, categories, chats, districts,
+      users, clinics, doctors, laboratories, appointments, reviews, banners, categories, chats, districts, legalPolicies,
       patientTab, setPatientTab,
       adminTab, setAdminTab,
       doctorTab, setDoctorTab,
@@ -1423,7 +1552,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking, updateClinicWaitingPatients, updateAppointmentStatus,
       updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
       addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
-      addBanner, deleteBanner, toggleBannerStatus,
+      addBanner, deleteBanner, toggleBannerStatus, updateLegalPolicy,
       activeNotificationToast, dismissNotificationToast
     }}>
       {children}

@@ -173,3 +173,10 @@ export interface District {
   active: boolean;
   createdAt?: string;
 }
+
+export interface LegalPolicy {
+  id: string;
+  title: string;
+  content: string;
+  updatedAt: string;
+}
