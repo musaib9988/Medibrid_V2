@@ -159,8 +159,12 @@ async function startServer() {
             const data = JSON.parse(response.text);
             return res.json(data);
           }
-        } catch (e) {
-          console.warn("Gemini health tip generation fallback used:", e);
+        } catch (e: any) {
+          if (e?.status === 429 || e?.message?.includes('429') || e?.message?.includes('quota') || e?.message?.includes('RESOURCE_EXHAUSTED')) {
+            console.log("Gemini API rate limit reached. Using fallback health tip.");
+          } else {
+            console.warn("Gemini health tip generation fallback used:", e);
+          }
         }
       }
 
