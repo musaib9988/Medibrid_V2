@@ -17,8 +17,8 @@ export const FeedbackModal: React.FC<{ onClose: () => void }> = ({ onClose }) =>
     setLoading(true);
     try {
       await addDoc(collection(db, 'feedback'), {
-        userId: userProfile?.uid,
-        userName: userProfile?.name,
+        userId: userProfile?.uid || 'anonymous',
+        userName: userProfile?.name || 'Anonymous',
         category,
         message,
         createdAt: new Date().toISOString(),

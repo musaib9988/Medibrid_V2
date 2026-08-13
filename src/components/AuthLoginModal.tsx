@@ -48,7 +48,11 @@ export const AuthLoginModal: React.FC = () => {
         await registerWithFirebaseEmail(email, password, name, phone, selectedRole, district);
       }
     } catch (err: any) {
-      setError(err.message || 'An error occurred during authentication.');
+      if (err.code === 'auth/network-request-failed') {
+        setError('Network Error: Please check your internet connection or disable ad-blockers/VPNs.');
+      } else {
+        setError(err.message || 'An error occurred during authentication.');
+      }
     }
   };
 

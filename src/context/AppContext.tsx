@@ -731,52 +731,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     (async () => {
       try {
-        const [cSnap, dSnap, bSnap, catSnap, distSnap] = await Promise.all([
-          getDocs(collection(db, 'clinics')),
-          getDocs(collection(db, 'doctors')),
-          getDocs(collection(db, 'banners')),
-          getDocs(collection(db, 'categories')),
-          getDocs(collection(db, 'districts')),
-        ]);
-
-        if (cSnap.empty) {
-          for (const c of DEFAULT_CLINICS) {
-            await setDoc(doc(db, 'clinics', c.id), c);
-          }
-        }
-        if (dSnap.empty) {
-          for (const d of DEFAULT_DOCTORS) {
-            await setDoc(doc(db, 'doctors', d.id), d);
-          }
-        }
-        if (bSnap.empty) {
-          for (const b of DEFAULT_BANNERS) {
-            await setDoc(doc(db, 'banners', b.id), b);
-          }
-        }
-        if (catSnap.empty) {
-          for (const cat of DEFAULT_CATEGORIES) {
-            await setDoc(doc(db, 'categories', cat.id), cat);
-          }
-        }
-        if (distSnap.empty) {
-          for (const dist of DEFAULT_DISTRICTS) {
-            await setDoc(doc(db, 'districts', dist.id), dist);
-          }
-        }
+        // Demo data seeding disabled
       } catch (e) {
         console.warn("Firebase seeding notice:", e);
       }
 
       unsubClinics = attachSafeSnapshot(collection(db, 'clinics'), (snap: any) => {
         const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Clinic));
-        const res = list.length > 0 ? list : DEFAULT_CLINICS;
+        const res = list;
         setClinics(res);
       }, "Clinics");
 
       unsubDoctors = attachSafeSnapshot(collection(db, 'doctors'), (snap: any) => {
         const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Doctor));
-        const res = list.length > 0 ? list : DEFAULT_DOCTORS;
+        const res = list;
         setDoctors(res);
       }, "Doctors");
 
@@ -787,13 +755,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       unsubBanners = attachSafeSnapshot(collection(db, 'banners'), (snap: any) => {
         const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Banner));
-        const res = list.length > 0 ? list : DEFAULT_BANNERS;
+        const res = list;
         setBanners(res);
       }, "Banners");
 
       unsubCategories = attachSafeSnapshot(collection(db, 'categories'), (snap: any) => {
         const list = snap.docs.map((d: any) => ({ id: d.id, ...d.data() } as Category));
-        const res = list.length > 0 ? list : DEFAULT_CATEGORIES;
+        const res = list;
         setCategories(res);
       }, "Categories");
 
@@ -1021,11 +989,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const logoutUser = async () => {
-    await signOut(auth);
+    console.log("Logout clicked!");
+    try {
+      await signOut(auth);
+    } catch (e) {
+      console.error("Signout error:", e);
+    }
+    setFirebaseUser(null);
     setRole(null);
     setUserProfile(null);
     setPatientTab('home');
-    openAuthModal('user');
+    closeAuthModal();
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {

@@ -211,6 +211,7 @@ export const PatientHome: React.FC = () => {
   const [dismissedPrompt, setDismissedPrompt] = useState(false);
   const [activeProfileModal, setActiveProfileModal] = useState<{title: string, subtitle?: string, policyId?: string} | null>(null);
   const [isFeedbackModalOpen, setIsFeedbackModalOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [customLocationInput, setCustomLocationInput] = useState('');
   const [upcoming1HourAlert, setUpcoming1HourAlert] = useState<{
@@ -474,13 +475,16 @@ export const PatientHome: React.FC = () => {
                   <MapPin className="w-3.5 h-3.5 text-rose-500 shrink-0" />
                   <span>{activeLocationName}</span>
                 </button>
-                <div className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 relative shadow-sm">
+                <button 
+                  onClick={() => setIsNotificationsOpen(true)}
+                  className="w-10 h-10 bg-white border border-slate-200 rounded-full flex items-center justify-center text-slate-600 relative shadow-sm hover:bg-slate-50 transition-colors"
+                >
                   <Bell className="w-5 h-5" />
                   {upcoming1HourAlert && (
                     <span className="absolute top-2 right-2.5 w-2.5 h-2.5 bg-amber-500 rounded-full border-2 border-white animate-ping"></span>
                   )}
                   <span className="absolute top-2 right-2.5 w-2 h-2 bg-rose-500 rounded-full border-2 border-white"></span>
-                </div>
+                </button>
               </div>
             </div>
 
@@ -804,17 +808,17 @@ export const PatientHome: React.FC = () => {
         <div className="mt-8 mb-4 relative overflow-hidden rounded-3xl shadow-sm bg-slate-900 border border-slate-800 py-3">
           <div className="animate-marquee whitespace-nowrap flex items-center gap-4 px-2">
             {[
-              '1782232191368.jpg',
-              '1782229544546.png',
-              'file_0000000022c071f8ac319fa1661205bb.png',
-              'file_0000000093ec7208bf08e2befcdae999.png',
-              '1782232191368.jpg',
-              '1782229544546.png',
-              'file_0000000022c071f8ac319fa1661205bb.png',
-              'file_0000000093ec7208bf08e2befcdae999.png'
+              '/1782232191368_transfer_2026-08-13_234035.jpg',
+              '/1782229544546_transfer_2026-08-13_234035.png',
+              '/file_0000000022c071f8ac319fa1661205bb_transfer_2026-08-13_234035.png',
+              '/file_000000000840720883a793af7df2f858_transfer_2026-08-13_234035.png',
+              '/1782232191368_transfer_2026-08-13_234035.jpg',
+              '/1782229544546_transfer_2026-08-13_234035.png',
+              '/file_0000000022c071f8ac319fa1661205bb_transfer_2026-08-13_234035.png',
+              '/file_000000000840720883a793af7df2f858_transfer_2026-08-13_234035.png'
             ].map((img, idx) => (
               <div key={idx} className="shrink-0 w-[85vw] md:w-[400px] h-[180px] rounded-[24px] overflow-hidden relative shadow-md bg-slate-800 border border-slate-700">
-                <img src={`/${img}`} alt={`Promo Banner ${idx}`} className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" />
+                <img src={img} alt={`Promo Banner ${idx}`} className="w-full h-full object-cover opacity-90 hover:opacity-100 transition-opacity" />
               </div>
             ))}
           </div>
@@ -1262,6 +1266,30 @@ export const PatientHome: React.FC = () => {
 
       {isFeedbackModalOpen && (
         <FeedbackModal onClose={() => setIsFeedbackModalOpen(false)} />
+      )}
+
+      {/* Notifications Modal */}
+      {isNotificationsOpen && (
+        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm z-[200] flex items-end sm:items-center justify-center p-4 animate-in fade-in">
+          <div className="bg-white w-full sm:w-[400px] max-h-[80vh] rounded-3xl shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-8">
+            <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+              <div>
+                <h2 className="font-bold text-slate-800">Notifications</h2>
+                <p className="text-xs text-slate-500">Your recent alerts</p>
+              </div>
+              <button onClick={() => setIsNotificationsOpen(false)} className="w-8 h-8 bg-white rounded-full flex items-center justify-center text-slate-500 shadow-sm border border-slate-200">
+                <XCircle className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 flex flex-col items-center justify-center min-h-[250px] text-center">
+              <div className="w-16 h-16 bg-teal-50 rounded-full flex items-center justify-center mb-4 text-teal-600 border border-teal-100 shadow-sm">
+                <Bell className="w-8 h-8" />
+              </div>
+              <h3 className="font-bold text-slate-800 mb-1">You're all caught up!</h3>
+              <p className="text-sm text-slate-500">No new notifications at the moment.</p>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Location Picker Modal */}
