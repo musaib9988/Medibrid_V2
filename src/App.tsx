@@ -8,6 +8,7 @@ import { WelcomeRoleModal } from './components/WelcomeRoleModal';
 import { MediBot } from './components/MediBot';
 import { SplashScreen } from './components/SplashScreen';
 import { NotificationToast } from './components/NotificationToast';
+import { InstallPWA } from './components/InstallPWA';
 
 const AppBodyContent: React.FC = () => {
   const { role, firebaseUser, requestPermissions } = useApp();
@@ -100,6 +101,7 @@ const MainLayout: React.FC = () => {
       <WelcomeRoleModal />
       <AuthLoginModal />
       {(!role || role === 'user') && <MediBot />}
+      <InstallPWA />
     </div>
   );
 };
