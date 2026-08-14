@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useRef } from 'react';
 import {
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
@@ -114,6 +114,7 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
       console.warn("Failed to update user profile with permissions:", e);
     }
   }
+  return updates;
 };
 import {
   UserRole,
@@ -643,24 +644,44 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const [activeNotificationToast, setActiveNotificationToast] = useState<{ id: string; title: string; body: string } | null>(null);
 
+  const prevChatsRef = useRef<Record<string, string>>({});
+
+    const showBackgroundNotification = async (title: string, body: string, url: string) => {
+    if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+      if ('serviceWorker' in navigator) {
+        try {
+          const registration = await navigator.serviceWorker.ready;
+          registration.showNotification(title, {
+            body,
+            icon: '/icon-192.svg',
+            badge: '/icon-192.svg',
+            data: { url }
+          });
+        } catch(e) {
+          console.error("SW notification error", e);
+        }
+      } else {
+        new Notification(title, { body, icon: '/icon-192.svg' } as any);
+      }
+    }
+  };
+
   const triggerPushNotificationUI = (title: string, body: string) => {
-    // 1. Show Native Web Push Notification if permission granted
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       try {
         if (navigator.serviceWorker) {
           navigator.serviceWorker.ready.then((registration) => {
-            registration.showNotification(title, { body, icon: '/icon.svg', badge: '/icon.svg', vibrate: [200, 100, 200] });
+            registration.showNotification(title, { body, icon: '/icon.svg', badge: '/icon.svg' });
           }).catch((err) => {
-            new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg', vibrate: [200, 100, 200] });
+            new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg' } as any);
           });
         } else {
-          new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg', vibrate: [200, 100, 200] });
+          new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg' } as any);
         }
       } catch (e) {
         console.warn("Native Notification popup notice:", e);
       }
     }
-    // 2. Show In-App Top Toast Banner
     setActiveNotificationToast({ id: Date.now().toString(), title, body });
     setTimeout(() => {
       setActiveNotificationToast(null);
@@ -852,11 +873,36 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }, "Users (Admin)");
         }
 
+        
         const chatQuery = query(collection(db, 'chats'), where('participants', 'array-contains', userId));
         unsubChats = attachSafeSnapshot(chatQuery, (snapshot: any) => {
           const fetchedChats = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Chat));
+          
+          // Check for new unread messages
+          fetchedChats.forEach((chat: Chat) => {
+            const prevTime = prevChatsRef.current[chat.id];
+            // If we have seen this chat before, and the time changed, and it's not read by us
+            if (prevTime && prevTime !== chat.lastMessageTime && chat.lastMessage && !(chat.readBy || []).includes(userId)) {
+              const otherName = (userRole === 'clinic_owner' ? chat.patientName : chat.clinicName) || 'User';
+              
+              // Only show OS notification if app is in background or we are not in that chat
+              if (document.visibilityState === 'hidden') {
+                showBackgroundNotification(otherName, chat.lastMessage, '/');
+              } else {
+                // We are in the app, maybe show in-app toast
+                setActiveNotificationToast({
+                  id: Date.now().toString(),
+                  title: `New message from ${otherName}`,
+                  body: chat.lastMessage
+                });
+              }
+            }
+            prevChatsRef.current[chat.id] = chat.lastMessageTime;
+          });
+
           setChats(fetchedChats);
         }, "Chats");
+
 
         let q = query(collection(db, 'appointments'));
         if (userRole === 'user') {
