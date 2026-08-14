@@ -214,6 +214,36 @@ export const PatientHome: React.FC = () => {
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [isLocationPickerOpen, setIsLocationPickerOpen] = useState(false);
   const [customLocationInput, setCustomLocationInput] = useState('');
+  const [isLocating, setIsLocating] = useState(false);
+
+  const handleDetectLocation = async () => {
+    if (!('geolocation' in navigator)) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocating(true);
+    try {
+      const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
+        navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
+      });
+      // Use OSM Nominatim for reverse geocoding as fallback if API key is not present
+      const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${pos.coords.latitude}&lon=${pos.coords.longitude}`);
+      const data = await res.json();
+      if (data && data.address) {
+        const district = data.address.county || data.address.state_district || data.address.city;
+        if (district) {
+          setSelectedDistrictFilter(district);
+          setIsLocationPickerOpen(false);
+        } else {
+          alert('Could not determine district from your location.');
+        }
+      }
+    } catch (err) {
+      alert('Failed to detect location. Please check your permissions.');
+    } finally {
+      setIsLocating(false);
+    }
+  };
   const [upcoming1HourAlert, setUpcoming1HourAlert] = useState<{
     appointment: any;
     minutesLeft: number;
@@ -1008,6 +1038,23 @@ export const PatientHome: React.FC = () => {
                 return true;
               });
 
+              if (!firebaseUser) {
+                return (
+                  <div className="flex flex-col items-center justify-center py-16 text-center px-6 bg-white rounded-3xl border border-slate-200 shadow-sm">
+                    <div className="w-20 h-20 bg-teal-50 rounded-full flex items-center justify-center mb-4 border border-teal-100 shadow-sm">
+                      <User className="w-10 h-10 text-teal-600" />
+                    </div>
+                    <h2 className="text-xl font-bold text-slate-900 mb-2">Sign In Required</h2>
+                    <p className="text-slate-500 text-xs mb-6 max-w-[280px]">
+                      Please sign in to view and manage your booked appointments.
+                    </p>
+                    <button onClick={() => openAuthModal('user')} className="bg-[#2D8C7C] text-white px-6 py-3 rounded-full text-xs font-bold shadow-md hover:bg-teal-700 transition-colors">
+                      Sign In / Register
+                    </button>
+                  </div>
+                );
+              }
+
               if (filteredApts.length === 0) {
                 return (
                   <div className="flex flex-col items-center justify-center py-16 text-center px-6 bg-white rounded-3xl border border-slate-200 shadow-sm">
@@ -1192,13 +1239,23 @@ export const PatientHome: React.FC = () => {
                 </div>
             </div>
 
-            <button 
-                onClick={logoutUser}
-                className="w-full bg-rose-50 text-rose-600 rounded-2xl p-4 flex items-center justify-center gap-2 shadow-sm font-bold border border-rose-100 hover:bg-rose-100 transition-colors mt-8 mb-6"
-            >
-                <LogOut className="w-5 h-5" />
-                Sign Out / Disconnect
-            </button>
+            {firebaseUser ? (
+              <button 
+                  onClick={logoutUser}
+                  className="w-full bg-rose-50 text-rose-600 rounded-2xl p-4 flex items-center justify-center gap-2 shadow-sm font-bold border border-rose-100 hover:bg-rose-100 transition-colors mt-8 mb-6"
+              >
+                  <LogOut className="w-5 h-5" />
+                  Sign Out / Disconnect
+              </button>
+            ) : (
+              <button 
+                  onClick={() => openAuthModal('user')}
+                  className="w-full bg-teal-600 text-white rounded-2xl p-4 flex items-center justify-center gap-2 shadow-sm font-bold border border-teal-700 hover:bg-teal-700 transition-colors mt-8 mb-6"
+              >
+                  <User className="w-5 h-5" />
+                  Sign In / Create Account
+              </button>
+            )}
           </div>
         )}
       </div>
@@ -1319,6 +1376,14 @@ export const PatientHome: React.FC = () => {
               </button>
             </div>
 
+            <button 
+              onClick={handleDetectLocation}
+              disabled={isLocating}
+              className="w-full bg-rose-50 text-rose-600 hover:bg-rose-100 border border-rose-200 rounded-2xl py-3 px-4 mb-6 flex items-center justify-center gap-2 font-bold text-sm transition-colors shadow-sm disabled:opacity-50"
+            >
+              <MapPin className="w-5 h-5" />
+              {isLocating ? 'Detecting your location...' : 'Use my Current Location'}
+            </button>
             {/* Custom Location Search */}
             <div className="mb-5">
               <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1.5 block">

@@ -19,12 +19,12 @@ const getApiKey = () => {
 
 let hasFetchedLocation = false;
 
-const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (update: any) => void) => {
+const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (update: any) => void, force = false) => {
   let updates: Partial<UserProfile> = {};
   
   // 1. Request Geolocation strictly only once per app open session
   const locationFetchedStorage = sessionStorage.getItem('medibridge_location_fetched');
-  if (!hasFetchedLocation && !locationFetchedStorage && 'geolocation' in navigator) {
+  if ((force || (!hasFetchedLocation && !locationFetchedStorage)) && 'geolocation' in navigator) {
     hasFetchedLocation = true;
     sessionStorage.setItem('medibridge_location_fetched', 'true');
     try {
@@ -479,6 +479,7 @@ export const attachSafeSnapshot = (
   label: string
 ) => {
   if (isFirestoreQuotaExhausted) {
+    onNext({ exists: () => false, data: () => null });
     return () => {};
   }
   let unsub: (() => void) | null = null;
@@ -500,7 +501,7 @@ export const attachSafeSnapshot = (
 
         if (isQuota) {
           if (!isFirestoreQuotaExhausted) {
-            isFirestoreQuotaExhausted = false;
+            isFirestoreQuotaExhausted = true;
             disableNetwork(db).catch(() => {});
           }
           isUnsubscribed = true;
@@ -539,7 +540,7 @@ export const safeGetDocs = async (queryOrRef: any) => {
       err?.message?.includes('resource-exhausted')
     ) {
       if (!isFirestoreQuotaExhausted) {
-        isFirestoreQuotaExhausted = false;
+        isFirestoreQuotaExhausted = true;
         disableNetwork(db).catch(() => {});
       }
       console.warn("Firestore quota limit reached during getDocs.");
@@ -561,7 +562,7 @@ export const safeGetDoc = async (docRef: any) => {
       err?.message?.includes('resource-exhausted')
     ) {
       if (!isFirestoreQuotaExhausted) {
-        isFirestoreQuotaExhausted = false;
+        isFirestoreQuotaExhausted = true;
         disableNetwork(db).catch(() => {});
       }
       console.warn("Firestore quota limit reached during getDoc.");
@@ -700,6 +701,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           }, "User Profile");
           // Request permissions automatically on successful login
           requestPermissionsAndSave(user.uid, setUserProfile);
+          // Fallback if role doesn't load
+          setTimeout(() => {
+             setRole(prev => {
+                if (prev === null) return isAdminEmail ? 'admin' : 'user';
+                return prev;
+             });
+          }, 3000);
         } catch (error) {
           console.error("Error fetching user profile:", error);
           setRole(isAdminEmail ? 'admin' : 'user');
@@ -1388,7 +1396,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   const requestPermissions = async () => {
     if (!firebaseUser) return;
-    await requestPermissionsAndSave(firebaseUser.uid, setUserProfile);
+    await requestPermissionsAndSave(firebaseUser.uid, setUserProfile, true);
   };
 
   const addCategory = async (name: string, icon?: string) => {

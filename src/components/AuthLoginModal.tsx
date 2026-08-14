@@ -5,7 +5,7 @@ import { Mail, Lock, User, Phone, X, MapPin } from 'lucide-react';
 export const AuthLoginModal: React.FC = () => {
   const { isAuthModalOpen, authModalRole, closeAuthModal, loginWithFirebaseEmail, registerWithFirebaseEmail, loginWithGoogle, resetPassword } = useApp();
   
-  const [isLogin, setIsLogin] = useState(true);
+  const [isLogin, setIsLogin] = useState(false);
   const [selectedRole, setSelectedRole] = useState<'user' | 'clinic_owner'>(authModalRole as 'user' | 'clinic_owner');
 
   useEffect(() => {
@@ -49,9 +49,23 @@ export const AuthLoginModal: React.FC = () => {
       }
     } catch (err: any) {
       if (err.code === 'auth/network-request-failed') {
-        setError('Network Error: Please check your internet connection or disable ad-blockers/VPNs.');
+        const inIframe = window.self !== window.top;
+        if (inIframe) {
+          setError('⚠️ Browser Privacy Block: Please click the "Open in new tab" icon (top right arrow ↗️) to use this app. Your browser blocks login inside this preview frame.');
+          return;
+        }
+        setError('Network Error: Try turning off Ad-blocker/VPN. If you are the admin, check if your Firebase API Key is restricted in Google Cloud Console (' + err.message + ')');
       } else {
-        setError(err.message || 'An error occurred during authentication.');
+        if (isLogin && (err.code === 'auth/invalid-credential' || err.code === 'auth/user-not-found')) {
+           setError('Account not found. Please sign up instead.');
+           setIsLogin(false);
+        } else {
+           setError(err.message || 'An error occurred during authentication.');
+        }
+        if (!isLogin && err.code === 'auth/email-already-in-use') {
+           setError('An account with this email already exists. Switching to Sign In.');
+           setIsLogin(true);
+        }
       }
     }
   };
@@ -61,7 +75,11 @@ export const AuthLoginModal: React.FC = () => {
     try {
       await loginWithGoogle(selectedRole);
     } catch (err: any) {
-      setError(err.message || 'Failed to sign in with Google');
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') {
+        setError('Sign in was cancelled.');
+      } else {
+        setError(err.message || 'Failed to sign in with Google');
+      }
     }
   };
 
