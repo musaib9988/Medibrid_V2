@@ -1,4 +1,6 @@
-import React from 'react';
+import fs from 'fs';
+
+const toastComponent = `import React from 'react';
 import { Bell, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -36,3 +38,10 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({ notificati
     </AnimatePresence>
   );
 };
+`;
+
+fs.writeFileSync('src/components/NotificationToast.tsx', toastComponent);
+
+let html = fs.readFileSync('index.html', 'utf8');
+html = html.replace('<meta name="theme-color" content="#ffffff" />', '<meta name="theme-color" content="#0d9488" />');
+fs.writeFileSync('index.html', html);
