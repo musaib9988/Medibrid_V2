@@ -16,6 +16,9 @@ messaging.onBackgroundMessage(function(payload) {
   const notificationTitle = payload?.notification?.title || 'Notification';
   const notificationOptions = {
     body: payload?.notification?.body,
+    icon: '/icon.svg',
+    badge: '/icon.svg', // Small monochrome icon for the status bar
+    vibrate: [200, 100, 200]
   };
 
   self.registration.showNotification(notificationTitle, notificationOptions);

@@ -649,12 +649,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       try {
         if (navigator.serviceWorker) {
           navigator.serviceWorker.ready.then((registration) => {
-            registration.showNotification(title, { body, icon: '/favicon.ico' });
+            registration.showNotification(title, { body, icon: '/icon.svg', badge: '/icon.svg', vibrate: [200, 100, 200] });
           }).catch((err) => {
-            new Notification(title, { body, icon: '/favicon.ico' });
+            new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg', vibrate: [200, 100, 200] });
           });
         } else {
-          new Notification(title, { body, icon: '/favicon.ico' });
+          new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg', vibrate: [200, 100, 200] });
         }
       } catch (e) {
         console.warn("Native Notification popup notice:", e);

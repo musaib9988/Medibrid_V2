@@ -1105,22 +1105,53 @@ export const AdminPanel: React.FC = () => {
                         <label className="cursor-pointer bg-slate-200 hover:bg-slate-300 text-slate-800 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-colors">
                           <ImageIcon className="w-4 h-4 text-slate-600" /> Upload Image
                           <input 
-                            type="file" 
-                            accept="image/*" 
-                            className="hidden" 
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                const reader = new FileReader();
-                                reader.onloadend = () => {
-                                  if (typeof reader.result === 'string') {
-                                    setNewBanner(prev => ({ ...prev, imageUrl: reader.result as string }));
-                                  }
-                                };
-                                reader.readAsDataURL(file);
-                              }
-                            }}
-                          />
+                              type="file" 
+                              accept="image/*" 
+                              className="hidden" 
+                              onChange={(e) => {
+                                const file = e.target.files?.[0];
+                                if (file) {
+                                  const reader = new FileReader();
+                                  reader.onloadend = () => {
+                                    if (typeof reader.result === 'string') {
+                                      const img = new Image();
+                                      img.src = reader.result;
+                                      img.onload = () => {
+                                        const canvas = document.createElement('canvas');
+                                        const MAX_WIDTH = 800;
+                                        const MAX_HEIGHT = 800;
+                                        let width = img.width;
+                                        let height = img.height;
+
+                                        if (width > height) {
+                                          if (width > MAX_WIDTH) {
+                                            height *= MAX_WIDTH / width;
+                                            width = MAX_WIDTH;
+                                          }
+                                        } else {
+                                          if (height > MAX_HEIGHT) {
+                                            width *= MAX_HEIGHT / height;
+                                            height = MAX_HEIGHT;
+                                          }
+                                        }
+
+                                        canvas.width = width;
+                                        canvas.height = height;
+                                        const ctx = canvas.getContext('2d');
+                                        if (ctx) {
+                                          ctx.drawImage(img, 0, 0, width, height);
+                                          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.6);
+                                          setNewBanner(prev => ({ ...prev, imageUrl: compressedDataUrl }));
+                                        } else {
+                                          setNewBanner(prev => ({ ...prev, imageUrl: reader.result as string }));
+                                        }
+                                      };
+                                    }
+                                  };
+                                  reader.readAsDataURL(file);
+                                }
+                              }}
+                            />
                         </label>
                       </div>
                     </div>

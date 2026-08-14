@@ -110,7 +110,7 @@ async function startServer() {
             },
             body: JSON.stringify({
               registration_ids: tokens,
-              notification: { title, body, sound: "default" },
+              notification: { title, body, sound: "default", icon: "/icon.svg" },
               data: { click_action: "FLUTTER_NOTIFICATION_CLICK", status: "done" }
             }),
           });
