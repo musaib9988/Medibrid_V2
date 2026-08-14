@@ -939,7 +939,7 @@ export const ClinicDashboard: React.FC = () => {
 
       {/* MODAL: EDIT CLINIC PROFILE */}
       {isEditProfileOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 shadow-2xl relative my-auto animate-in zoom-in-95">
             <button 
               onClick={() => setIsEditProfileOpen(false)}
@@ -1266,7 +1266,7 @@ export const ClinicDashboard: React.FC = () => {
 
       {/* MODAL: ADD DOCTOR */}
       {isAddDoctorOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl relative my-auto animate-in zoom-in-95">
             <button 
               onClick={() => setIsAddDoctorOpen(false)}
@@ -1391,7 +1391,7 @@ export const ClinicDashboard: React.FC = () => {
 
       {/* MODAL: ADD LABORATORY */}
       {isAddLabOpen && (
-        <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+        <div className="fixed inset-0 z-[100] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
           <div className="bg-white rounded-3xl max-w-lg w-full p-6 md:p-8 shadow-2xl relative my-auto animate-in zoom-in-95">
             <button 
               onClick={() => setIsAddLabOpen(false)}
