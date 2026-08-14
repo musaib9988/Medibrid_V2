@@ -1,4 +1,25 @@
-import React, { useState, useEffect } from 'react';
+import fs from 'fs';
+
+// 1. Capture prompt globally in index.html
+let html = fs.readFileSync('index.html', 'utf8');
+if (!html.includes('window.deferredPWAInstallPrompt')) {
+  const scriptToAdd = `
+    <script>
+      window.deferredPWAInstallPrompt = null;
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        window.deferredPWAInstallPrompt = e;
+        // Dispatch custom event so React can pick it up immediately
+        window.dispatchEvent(new Event('pwa-prompt-ready'));
+      });
+    </script>
+  </head>`;
+  html = html.replace('</head>', scriptToAdd);
+  fs.writeFileSync('index.html', html);
+}
+
+// 2. Update InstallPWA.tsx to use the global prompt
+const pwaComponent = `import React, { useState, useEffect } from 'react';
 import { Download, X } from 'lucide-react';
 
 export const InstallPWA: React.FC = () => {
@@ -100,3 +121,6 @@ export const InstallPWA: React.FC = () => {
     </div>
   );
 };
+`;
+
+fs.writeFileSync('src/components/InstallPWA.tsx', pwaComponent);
