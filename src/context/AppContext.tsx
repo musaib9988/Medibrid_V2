@@ -104,7 +104,9 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
   // Save if any updates
   if (Object.keys(updates).length > 0) {
     try {
-      await setDoc(doc(db, 'users', uid), updates, { merge: true });
+      if (uid) {
+        await setDoc(doc(db, 'users', uid), updates, { merge: true });
+      }
       if (setUserProfileCallback) {
         setUserProfileCallback((prev: any) => prev ? { ...prev, ...updates } : null);
       }
@@ -132,6 +134,7 @@ interface AppContextType {
   role: UserRole | null;
   firebaseUser: FirebaseUser | null;
   userProfile: UserProfile | null;
+  userLocationDistrict: string | null;
   googleAccessToken: string | null;
   
   // Realtime Data
@@ -611,6 +614,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [role, setRole] = useState<UserRole | null>(null);
   const [firebaseUser, setFirebaseUser] = useState<FirebaseUser | null>(null);
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null);
+  const [userLocationDistrict, setUserLocationDistrict] = useState<string | null>(null);
   const [googleAccessToken, setGoogleAccessToken] = useState<string | null>(null);
 
   const [users, setUsers] = useState<UserProfile[]>([]);
@@ -1395,8 +1399,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const requestPermissions = async () => {
-    if (!firebaseUser) return;
-    await requestPermissionsAndSave(firebaseUser.uid, setUserProfile, true);
+    // If not logged in, pass empty string to still trigger location check
+    const updates = await requestPermissionsAndSave(firebaseUser?.uid || '', setUserProfile, false);
+    if (updates && (updates as any).district) {
+      setUserLocationDistrict((updates as any).district);
+    }
   };
 
   const addCategory = async (name: string, icon?: string) => {
@@ -1521,7 +1528,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   return (
     <AppContext.Provider value={{
-      role, firebaseUser, userProfile, googleAccessToken,
+      role, firebaseUser, userProfile, googleAccessToken, userLocationDistrict,
       users, clinics, doctors, laboratories, appointments, reviews, banners, categories, chats, districts, legalPolicies,
       patientTab, setPatientTab,
       adminTab, setAdminTab,

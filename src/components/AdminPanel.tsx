@@ -10,6 +10,7 @@ import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 
 interface NavItemProps {
+  onClickMenu?: () => void;
   icon: any;
   label: string;
   id: string;
@@ -18,11 +19,11 @@ interface NavItemProps {
   setActiveTab: (id: string) => void;
 }
 
-const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, id, badge, activeTab, setActiveTab }) => {
+const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, id, badge, activeTab, setActiveTab, onClickMenu }) => {
   const isActive = activeTab === id;
   return (
     <button 
-      onClick={() => setActiveTab(id)}
+      onClick={() => { setActiveTab(id); if(onClickMenu) onClickMenu(); }}
       className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl mb-1 transition-all ${
         isActive 
           ? 'bg-teal-600 text-white font-bold shadow-md shadow-teal-600/20' 
@@ -72,6 +73,13 @@ export const AdminPanel: React.FC = () => {
     | 'legal_policies';
 
   const [activeTab, setActiveTab] = useState<AdminTab>('dashboard');
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [MenuIcon, setMenuIcon] = useState(null);
+  
+  // Lazy load Menu icon to avoid import issues
+  React.useEffect(() => {
+    import('lucide-react').then(mod => setMenuIcon(() => mod.Menu));
+  }, []);
 
   // Legal Policies editor state
   const [selectedPolicyId, setSelectedPolicyId] = useState<string>('shipping_delivery');
@@ -229,7 +237,16 @@ export const AdminPanel: React.FC = () => {
   return (
     <div className="flex h-screen bg-slate-100 text-slate-900 overflow-hidden font-sans selection:bg-teal-500/30">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-slate-200 flex flex-col h-full shrink-0 overflow-y-auto shadow-sm">
+      {/* Mobile Menu Overlay */}
+      {isMobileMenuOpen && (
+        <div 
+          className="fixed inset-0 bg-slate-900/60 z-[200] lg:hidden"
+          onClick={() => setIsMobileMenuOpen(false)}
+        />
+      )}
+      
+      {/* Sidebar */}
+      <div className={`fixed inset-y-0 left-0 z-[210] w-64 bg-white border-r border-slate-200 flex flex-col h-full shrink-0 overflow-y-auto shadow-sm transform transition-transform duration-300 lg:relative lg:translate-x-0 ${isMobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}>
         <div className="p-4 border-b border-slate-200 flex items-center gap-3 bg-slate-900 text-white">
           <div className="w-10 h-10 rounded-xl bg-teal-500 flex items-center justify-center text-white font-black text-lg shrink-0 shadow-lg shadow-teal-500/30">
             {firstName.charAt(0)}
@@ -245,29 +262,29 @@ export const AdminPanel: React.FC = () => {
         
         <div className="p-3 flex-1">
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-1">Core Navigation</p>
-          <NavItem icon={LayoutDashboard} label="Dashboard" id="dashboard" activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Building2} label="Providers Directory" id="clinics" badge={pendingClinics.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Activity} label="Doctor Availability" id="doctor_availability" activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Users} label="Patient Accounts" id="users" badge={users.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={FileText} label="Appointments Console" id="appointments" badge={appointments.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={LayoutDashboard} label="Dashboard" id="dashboard" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Building2} label="Providers Directory" id="clinics" badge={pendingClinics.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Activity} label="Doctor Availability" id="doctor_availability" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Users} label="Patient Accounts" id="users" badge={users.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={FileText} label="Appointments Console" id="appointments" badge={appointments.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
 
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-4">Catalog & Regions</p>
-          <NavItem icon={MapPin} label="J&K Districts" id="districts" badge={districts.filter(d => d.active).length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={HeartPulse} label="Medical Specialties" id="specialties" badge={specialtiesList.filter(s => s.active).length} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Building2} label="Facility Types" id="facility_types" badge={facilityTypesList.length} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Grid} label="Categories CMS" id="categories" badge={categories.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={FolderTree} label="Service Catalog" id="service_catalog" badge={serviceCatalog.filter(s => s.active).length} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={MapPin} label="J&K Districts" id="districts" badge={districts.filter(d => d.active).length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={HeartPulse} label="Medical Specialties" id="specialties" badge={specialtiesList.filter(s => s.active).length} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Building2} label="Facility Types" id="facility_types" badge={facilityTypesList.length} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Grid} label="Categories CMS" id="categories" badge={categories.length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={FolderTree} label="Service Catalog" id="service_catalog" badge={serviceCatalog.filter(s => s.active).length} activeTab={activeTab} setActiveTab={setActiveTab} />
 
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-4">CMS & Engagement</p>
-          <NavItem icon={ImageIcon} label="App Banners" id="banners" badge={banners.filter(b => b.active).length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Edit3} label="Homepage Manager" id="homepage_manager" activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={FileText} label="Legal Policies Manager" id="legal_policies" badge={legalPolicies.length || 6} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Star} label="Reviews Moderation" id="reviews" badge={reviewsList.filter(r => r.status === 'pending').length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Radio} label="Broadcast Center" id="notifications" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={ImageIcon} label="App Banners" id="banners" badge={banners.filter(b => b.active).length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Edit3} label="Homepage Manager" id="homepage_manager" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={FileText} label="Legal Policies Manager" id="legal_policies" badge={legalPolicies.length || 6} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Star} label="Reviews Moderation" id="reviews" badge={reviewsList.filter(r => r.status === 'pending').length || undefined} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Radio} label="Broadcast Center" id="notifications" activeTab={activeTab} setActiveTab={setActiveTab} />
 
           <p className="px-3 text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2 mt-4">System</p>
-          <NavItem icon={ShieldCheck} label="Activity Audit Log" id="audit_log" badge={auditLogs.length} activeTab={activeTab} setActiveTab={setActiveTab} />
-          <NavItem icon={Settings} label="Settings & Reset" id="settings" activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={ShieldCheck} label="Activity Audit Log" id="audit_log" badge={auditLogs.length} activeTab={activeTab} setActiveTab={setActiveTab} />
+          <NavItem onClickMenu={() => setIsMobileMenuOpen(false)} icon={Settings} label="Settings & Reset" id="settings" activeTab={activeTab} setActiveTab={setActiveTab} />
         </div>
 
         <div className="p-3 border-t border-slate-200 bg-slate-50">
@@ -283,6 +300,12 @@ export const AdminPanel: React.FC = () => {
           {/* Top Bar Header */}
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6 bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
             <div className="flex items-center gap-4">
+              <button 
+                className="lg:hidden p-2 -ml-2 text-slate-600 hover:bg-slate-100 rounded-xl"
+                onClick={() => setIsMobileMenuOpen(true)}
+              >
+                {MenuIcon ? <MenuIcon className="w-6 h-6" /> : <div className="w-6 h-6 border-y-2 border-slate-600 my-1" />}
+              </button>
               <div className="w-12 h-12 rounded-2xl bg-teal-600 flex items-center justify-center text-white text-xl font-black shadow-lg shadow-teal-600/20 shrink-0">
                 ⚡
               </div>
@@ -521,7 +544,7 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto"><table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase tracking-wider bg-slate-50">
                       <th className="p-3 font-bold">Doctor Details</th>
@@ -590,7 +613,7 @@ export const AdminPanel: React.FC = () => {
                       );
                     })}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           )}
@@ -753,7 +776,7 @@ export const AdminPanel: React.FC = () => {
               )}
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto"><table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 text-xs bg-slate-50">
                       <th className="p-3 font-bold">Service Name</th>
@@ -776,7 +799,7 @@ export const AdminPanel: React.FC = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           )}
@@ -803,7 +826,7 @@ export const AdminPanel: React.FC = () => {
               </div>
 
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto"><table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 text-xs bg-slate-50">
                       <th className="p-3 font-bold">Patient</th>
@@ -845,7 +868,7 @@ export const AdminPanel: React.FC = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           )}
@@ -955,7 +978,7 @@ export const AdminPanel: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-in fade-in">
               <h2 className="text-lg font-bold text-slate-900 mb-6">Registered Patient Accounts ({users.length})</h2>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto"><table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50">
                       <th className="p-3 font-bold">User Name</th>
@@ -983,7 +1006,7 @@ export const AdminPanel: React.FC = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           )}
@@ -993,7 +1016,7 @@ export const AdminPanel: React.FC = () => {
             <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-in fade-in">
               <h2 className="text-lg font-bold text-slate-900 mb-6">Providers Directory ({clinics.length})</h2>
               <div className="overflow-x-auto">
-                <table className="w-full text-left border-collapse">
+                <div className="overflow-x-auto"><table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50">
                       <th className="p-3 font-bold">Clinic Name</th>
@@ -1019,7 +1042,7 @@ export const AdminPanel: React.FC = () => {
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </table></div>
               </div>
             </div>
           )}
