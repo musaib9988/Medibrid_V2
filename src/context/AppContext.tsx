@@ -647,7 +647,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     // 1. Show Native Web Push Notification if permission granted
     if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
       try {
-        new Notification(title, { body, icon: '/favicon.ico' });
+        if (navigator.serviceWorker) {
+          navigator.serviceWorker.ready.then((registration) => {
+            registration.showNotification(title, { body, icon: '/favicon.ico' });
+          }).catch((err) => {
+            new Notification(title, { body, icon: '/favicon.ico' });
+          });
+        } else {
+          new Notification(title, { body, icon: '/favicon.ico' });
+        }
       } catch (e) {
         console.warn("Native Notification popup notice:", e);
       }

@@ -1,7 +1,10 @@
-import {StrictMode} from 'react';
-import {createRoot} from 'react-dom/client';
-import App from './App.tsx';
-import './index.css';
+import fs from 'fs';
+let code = fs.readFileSync('src/main.tsx', 'utf8');
+
+if (!code.includes('serviceWorker')) {
+  code = code.replace(
+    "import './index.css';",
+    `import './index.css';
 
 if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
@@ -11,10 +14,7 @@ if ('serviceWorker' in navigator) {
       console.log('SW registration failed: ', registrationError);
     });
   });
+}`
+  );
+  fs.writeFileSync('src/main.tsx', code);
 }
-
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>,
-);
