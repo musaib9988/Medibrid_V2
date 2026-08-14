@@ -1,16 +1,35 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
   <rect width="192" height="192" fill="#ffffff"/>
-  <!-- Staff -->
-  <rect x="92" y="30" width="8" height="110" fill="#20B2AA" rx="4"/>
-  <circle cx="96" cy="24" r="10" fill="#3b82f6"/>
-  <!-- Wings -->
-  <path d="M 90 40 C 60 20 20 30 10 50 C 30 60 60 50 90 48 Z" fill="#3b82f6"/>
-  <path d="M 102 40 C 132 20 172 30 182 50 C 162 60 132 50 102 48 Z" fill="#3b82f6"/>
-  <!-- Snakes -->
-  <path d="M 96 140 C 70 120 120 100 96 80 C 70 60 110 50 110 50" stroke="#16a34a" stroke-width="8" fill="none" stroke-linecap="round"/>
-  <path d="M 96 140 C 122 120 72 100 96 80 C 122 60 82 50 82 50" stroke="#10b981" stroke-width="8" fill="none" stroke-linecap="round"/>
+  
+  <!-- Staff (Middle teal stick) -->
+  <rect x="92" y="15" width="8" height="125" fill="#14b8a6" rx="4"/>
+  
+  <!-- Top Blue Ball -->
+  <circle cx="96" cy="18" r="12" fill="#0284c7"/>
+  <circle cx="94" cy="16" r="4" fill="#38bdf8"/> <!-- shine -->
+
+  <!-- Left Blue Wing -->
+  <path d="M 90 35 C 50 10 10 25 5 45 C 20 60 50 45 90 45 Z" fill="#0284c7"/>
+  <path d="M 90 42 C 60 30 20 40 10 60 C 25 65 55 55 90 52 Z" fill="#0284c7"/>
+  <path d="M 88 50 C 65 45 35 55 25 70 C 40 70 65 65 88 58 Z" fill="#0284c7"/>
+
+  <!-- Right Blue Wing -->
+  <path d="M 102 35 C 142 10 182 25 187 45 C 172 60 142 45 102 45 Z" fill="#0284c7"/>
+  <path d="M 102 42 C 132 30 172 40 182 60 C 167 65 137 55 102 52 Z" fill="#0284c7"/>
+  <path d="M 104 50 C 127 45 157 55 167 70 C 152 70 127 65 104 58 Z" fill="#0284c7"/>
+
+  <!-- Left Blue Snake -->
+  <path d="M 92 65 C 50 50 50 90 85 100 C 120 110 120 135 85 145 C 75 148 65 142 65 135" stroke="#0284c7" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Left Blue Snake Head -->
+  <path d="M 92 65 L 85 55 L 75 65 Z" fill="#0284c7"/>
+
+  <!-- Right Green Snake -->
+  <path d="M 100 80 C 142 65 142 105 107 115 C 72 125 72 150 107 160 C 117 163 127 157 127 150" stroke="#65a30d" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Right Green Snake Head -->
+  <path d="M 100 80 L 107 70 L 117 80 Z" fill="#65a30d"/>
+
   <!-- Text -->
-  <text x="96" y="175" font-family="sans-serif" font-size="28" font-weight="bold" text-anchor="middle">
-    <tspan fill="#1d4ed8">Medi</tspan><tspan fill="#65a30d">Brid</tspan>
+  <text x="96" y="180" font-family="'Segoe UI', Roboto, Helvetica, Arial, sans-serif" font-size="26" font-weight="800" text-anchor="middle" letter-spacing="-0.5">
+    <tspan fill="#0284c7">Medi</tspan><tspan fill="#65a30d">Brid</tspan>
   </text>
 </svg>
