@@ -15,6 +15,19 @@
   letter-spacing: -0.025em;
 }
 
+.glass-panel {
+  background: rgba(255, 255, 255, 0.75);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  box-shadow: 0 4px 24px -4px rgba(15, 23, 42, 0.04);
+}
+
+.bg-dot-pattern {
+  background-image: radial-gradient(rgba(148, 163, 184, 0.18) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
 /* Marquee Animation for Scrolling Banners */
 @keyframes marquee {
   0% { transform: translateX(0); }

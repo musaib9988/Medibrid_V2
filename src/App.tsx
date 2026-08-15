@@ -84,16 +84,16 @@ const MainLayout: React.FC = () => {
   const { role, activeNotificationToast, dismissNotificationToast } = useApp();
 
   return (
-    <div className="min-h-screen bg-slate-100 text-slate-900 flex flex-col font-sans selection:bg-teal-500/20 selection:text-teal-900">
+    <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col font-sans selection:bg-teal-500/20 selection:text-teal-900 bg-dot-pattern relative">
       <NotificationToast
         notification={activeNotificationToast}
         onClose={dismissNotificationToast}
       />
-      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5 pb-20 sm:pb-12">
+      <main className="flex-1 max-w-6xl w-full mx-auto px-4 sm:px-6 pt-5 pb-20 sm:pb-12 relative z-10">
         <AppBodyContent />
       </main>
 
-      <footer className="w-full py-3 text-center text-xs text-slate-500 font-medium tracking-wide flex items-center justify-center gap-1.5 border-t border-slate-200/60 mt-auto bg-white/80 backdrop-blur-sm">
+      <footer className="w-full py-3 text-center text-xs text-slate-500 font-medium tracking-wide flex items-center justify-center gap-1.5 border-t border-slate-200/60 mt-auto glass-panel z-20">
         <span>Made By Musaib Hamid with love 💝 for Kashmir</span>
       </footer>
 

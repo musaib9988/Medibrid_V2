@@ -39,11 +39,12 @@ const ClinicCard: React.FC<{ clinic: any; index?: number; onSelect: (clinic: any
     animate={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.35, delay: index * 0.05, ease: [0.22, 1, 0.36, 1] }}
     whileHover={{ y: -2, transition: { duration: 0.2 } }}
-    className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm hover:shadow-md transition-all flex flex-col p-4 mb-3 cursor-pointer" 
+    className="bg-white/80 backdrop-blur-md rounded-3xl border border-white/60 overflow-hidden shadow-[0_8px_30px_rgb(0,0,0,0.04)] hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] transition-all flex flex-col p-4 mb-4 cursor-pointer relative" 
     onClick={() => onSelect(clinic)}
   >
-    <div className="flex gap-4">
-      <div className="w-16 h-16 rounded-2xl bg-slate-100 overflow-hidden shrink-0 relative">
+    <div className="absolute inset-0 bg-gradient-to-br from-white/40 to-transparent pointer-events-none" />
+    <div className="flex gap-4 relative z-10">
+      <div className="w-16 h-16 rounded-[20px] bg-slate-100 overflow-hidden shrink-0 relative shadow-inner">
          {clinic.logoUrl || clinic.coverImageUrl ? (
            <img src={clinic.logoUrl || clinic.coverImageUrl} alt={clinic.clinicName} className="w-full h-full object-cover" />
          ) : (
@@ -513,19 +514,19 @@ export const PatientHome: React.FC = () => {
   ];
 
   return (
-    <div className="flex flex-col w-full h-full bg-slate-50 min-h-screen">
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4">
+    <div className="flex flex-col w-full h-full bg-transparent min-h-screen">
+      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 relative">
         {patientTab === 'home' && (
           <div className="animate-in fade-in">
             {/* Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className="sticky top-0 z-40 -mx-4 px-4 py-3 bg-white/70 backdrop-blur-xl border-b border-white/50 mb-6 flex items-center justify-between shadow-[0_4px_24px_-4px_rgba(15,23,42,0.02)]">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden">
+                <div className="w-10 h-10 rounded-full bg-slate-200 overflow-hidden shadow-inner">
                   <img src={userProfile?.photoURL || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?auto=format&fit=crop&w=150&q=80'} className="w-full h-full object-cover" alt="User" />
                 </div>
                 <div>
-                  <p className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">{getGreeting()}</p>
-                  <h1 className="text-sm font-bold text-slate-900">{firstName} 👋</h1>
+                  <p className="text-[10px] uppercase text-teal-600 font-extrabold tracking-widest mb-0.5">{getGreeting()}</p>
+                  <h1 className="text-sm font-black text-slate-900 tracking-tight">{firstName} 👋</h1>
                 </div>
               </div>
               <div className="flex items-center gap-3">
@@ -723,16 +724,17 @@ export const PatientHome: React.FC = () => {
                   ))}
                 </div>
               ) : (
-                <div className="bg-[#2D8C7C] rounded-[32px] p-6 relative overflow-hidden flex items-center shadow-md">
-                  <div className="z-10 w-2/3 pr-4">
-                    <h2 className="text-white text-xl font-bold mb-2">Looking for desired doctor?</h2>
-                    <p className="text-teal-50 text-xs mb-4 opacity-90 leading-relaxed">Find certified doctors in {userProfile?.district || 'Srinagar'} and book 10-minute slots.</p>
-                    <button onClick={() => setPatientTab('discover')} className="bg-white text-teal-800 px-4 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-sm hover:scale-105 transition-transform w-fit">
-                      <Search className="w-4 h-4 text-teal-600" /> Search for
+                <div className="bg-gradient-to-br from-[#2D8C7C] to-teal-900 rounded-[32px] p-6 relative overflow-hidden flex items-center shadow-[0_10px_40px_-10px_rgba(45,140,124,0.4)] border border-teal-600/30">
+                  <div className="absolute -top-24 -left-24 w-64 h-64 bg-teal-400/20 rounded-full blur-3xl pointer-events-none" />
+                  <div className="z-10 w-[60%] pr-2 relative">
+                    <h2 className="text-white text-2xl font-extrabold mb-2 leading-tight tracking-tight">Looking for<br/>desired doctor?</h2>
+                    <p className="text-teal-100/90 text-xs mb-5 font-medium leading-relaxed">Find certified doctors in {userProfile?.district || 'Srinagar'} and book 10-minute slots.</p>
+                    <button onClick={() => setPatientTab('discover')} className="bg-white text-teal-900 px-5 py-2.5 rounded-full text-xs font-bold flex items-center gap-2 shadow-[0_4px_14px_0_rgba(0,0,0,0.1)] hover:shadow-[0_6px_20px_rgba(0,0,0,0.15)] hover:scale-[1.02] transition-all w-fit">
+                      <Search className="w-4 h-4 text-teal-600" /> Search Now
                     </button>
                   </div>
-                  <div className="absolute right-0 bottom-0 w-[45%] h-[120%] flex items-end justify-end translate-y-2">
-                    <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=300&q=80" className="object-cover h-full rounded-tl-full rounded-bl-full border-4 border-[#2D8C7C]" alt="Doctor" />
+                  <div className="absolute right-0 bottom-0 w-[50%] h-[110%] flex items-end justify-end translate-y-4 translate-x-2">
+                    <img src="https://images.unsplash.com/photo-1612349317150-e413f6a5b16d?auto=format&fit=crop&w=300&q=80" className="object-cover h-full rounded-tl-[60px] rounded-bl-[60px] border-[6px] border-[#2D8C7C] shadow-[-10px_0_30px_rgba(0,0,0,0.2)]" alt="Doctor" />
                   </div>
                 </div>
               )}

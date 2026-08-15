@@ -667,16 +667,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const triggerPushNotificationUI = (title: string, body: string) => {
-    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+    // Show Native Web Push Notification if permission granted and the user is not actively focused on this window
+    if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted' && !document.hasFocus()) {
       try {
         if (navigator.serviceWorker) {
           navigator.serviceWorker.ready.then((registration) => {
-            registration.showNotification(title, { body, icon: '/icon.svg', badge: '/icon.svg' });
+            registration.showNotification(title, { body, icon: '/icon-192.svg', badge: '/icon-192.svg' });
           }).catch((err) => {
-            new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg' } as any);
+            new Notification(title, { body, icon: '/icon-192.svg', badge: '/icon-192.svg' } as any);
           });
         } else {
-          new Notification(title, { body, icon: '/icon.svg', badge: '/icon.svg' } as any);
+          new Notification(title, { body, icon: '/icon-192.svg', badge: '/icon-192.svg' } as any);
         }
       } catch (e) {
         console.warn("Native Notification popup notice:", e);
@@ -877,29 +878,6 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const chatQuery = query(collection(db, 'chats'), where('participants', 'array-contains', userId));
         unsubChats = attachSafeSnapshot(chatQuery, (snapshot: any) => {
           const fetchedChats = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() } as Chat));
-          
-          // Check for new unread messages
-          fetchedChats.forEach((chat: Chat) => {
-            const prevTime = prevChatsRef.current[chat.id];
-            // If we have seen this chat before, and the time changed, and it's not read by us
-            if (prevTime && prevTime !== chat.lastMessageTime && chat.lastMessage && !(chat.readBy || []).includes(userId)) {
-              const otherName = (userRole === 'clinic_owner' ? chat.patientName : chat.clinicName) || 'User';
-              
-              // Only show OS notification if app is in background or we are not in that chat
-              if (document.visibilityState === 'hidden') {
-                showBackgroundNotification(otherName, chat.lastMessage, '/');
-              } else {
-                // We are in the app, maybe show in-app toast
-                setActiveNotificationToast({
-                  id: Date.now().toString(),
-                  title: `New message from ${otherName}`,
-                  body: chat.lastMessage
-                });
-              }
-            }
-            prevChatsRef.current[chat.id] = chat.lastMessageTime;
-          });
-
           setChats(fetchedChats);
         }, "Chats");
 
@@ -915,8 +893,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         }, "Appointments");
 
         // Realtime Notifications Listener for All Panels & Roles
+        let isInitialNotifLoad = true;
         const notifQuery = query(collection(db, 'notifications'));
         unsubNotifications = attachSafeSnapshot(notifQuery, (snapshot: any) => {
+          if (isInitialNotifLoad) {
+            isInitialNotifLoad = false;
+            return;
+          }
           snapshot.docChanges().forEach((change: any) => {
             if (change.type === 'added') {
               const data = change.doc.data();

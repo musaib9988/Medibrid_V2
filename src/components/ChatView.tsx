@@ -6,11 +6,10 @@ import { Message, Chat } from '../types';
 import { ArrowLeft, Send, User } from 'lucide-react';
 
 export const ChatView: React.FC = () => {
-  const { userProfile, chats, activeChatId, setActiveChatId } = useApp();
+    const { userProfile, chats, activeChatId, setActiveChatId, users, sendAppNotification } = useApp();
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const messagesEndRef = useRef<HTMLDivElement>(null);
-
   const activeChat = chats.find(c => c.id === activeChatId);
 
   useEffect(() => {
@@ -39,9 +38,9 @@ export const ChatView: React.FC = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+    const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim() || !activeChatId || !userProfile) return;
+    if (!newMessage.trim() || !activeChatId || !userProfile || !activeChat) return;
 
     const text = newMessage;
     setNewMessage('');
@@ -59,6 +58,19 @@ export const ChatView: React.FC = () => {
         lastMessageTime: new Date().toISOString(),
         readBy: [userProfile.uid]
       });
+
+      // Send push notification to the other participant
+      const otherUserId = activeChat.participants.find(p => p !== userProfile.uid);
+      if (otherUserId) {
+         const otherUser = users?.find(u => u.uid === otherUserId);
+         const senderName = userProfile.role === 'clinic_owner' ? activeChat.clinicName : activeChat.patientName;
+         sendAppNotification(
+            `New message from ${senderName || 'User'}`,
+            text,
+            otherUserId,
+            otherUser?.fcmToken
+         );
+      }
     } catch (error) {
       console.error("Error sending message:", error);
     }

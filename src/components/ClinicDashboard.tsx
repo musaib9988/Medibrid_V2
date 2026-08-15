@@ -336,12 +336,13 @@ export const ClinicDashboard: React.FC = () => {
       <Header />
       
       {doctorTab === 'dashboard' && (
-        <div className="bg-white rounded-3xl p-6 md:p-8 shadow-sm border border-slate-200">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+        <div className="bg-white/80 backdrop-blur-xl rounded-[32px] p-6 md:p-8 shadow-[0_8px_30px_rgb(0,0,0,0.04)] border border-white/60 relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-96 h-96 bg-teal-50/50 rounded-full blur-3xl pointer-events-none -translate-y-1/2 translate-x-1/3" />
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 relative z-10">
             <div>
-              <h1 className="text-2xl font-black text-slate-800 mb-1">{timeGreeting}, {firstName}</h1>
+              <h1 className="text-2xl font-black text-slate-800 mb-1 tracking-tight">{timeGreeting}, {firstName}</h1>
               <p className="text-slate-500 text-sm flex items-center gap-2">
-                Managing <span className="font-bold text-slate-700">{myClinic.clinicName}</span>
+                Managing <span className="font-bold text-slate-800">{myClinic.clinicName}</span>
                 {myClinic.verified ? (
                   <span className="flex items-center gap-1 text-teal-600 bg-teal-50 px-2 py-0.5 rounded-md text-xs font-bold">
                     <CheckCircle2 className="w-3.5 h-3.5" /> Verified
