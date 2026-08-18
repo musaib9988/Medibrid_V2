@@ -14,11 +14,24 @@
   "orientation": "portrait",
   "categories": ["health", "medical", "lifestyle"],
   "prefer_related_applications": false,
-  "related_applications": [],
+  "related_applications": [
+    {
+      "platform": "play",
+      "url": "https://play.google.com/store/apps/details?id=com.medibrid.app",
+      "id": "com.medibrid.app"
+    },
+    {
+      "platform": "windows",
+      "url": "https://www.microsoft.com/store/apps/9medibridapp"
+    }
+  ],
   "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
   "scope_extensions": [
     {
       "origin": "*.medibrid.com"
+    },
+    {
+      "origin": "https://*.medibrid.com"
     }
   ],
   "note_taking": {
