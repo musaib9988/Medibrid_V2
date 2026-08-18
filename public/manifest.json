@@ -107,13 +107,13 @@
   "screenshots": [
     {
       "src": "/1782229544546_transfer_2026-08-13_234035.png",
-      "sizes": "1080x1920",
+      "sizes": "1360x784",
       "type": "image/png",
-      "form_factor": "narrow"
+      "form_factor": "wide"
     },
     {
       "src": "/file_000000000840720883a793af7df2f858_transfer_2026-08-13_234035.png",
-      "sizes": "1920x1080",
+      "sizes": "1402x1122",
       "type": "image/png",
       "form_factor": "wide"
     }
