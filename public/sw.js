@@ -58,8 +58,8 @@ self.addEventListener('push', event => {
 
   const options = {
     body: data.body,
-    icon: '/icon-192.svg',
-    badge: '/icon-192.svg',
+    icon: '/logo.webp',
+    badge: '/logo.webp',
     vibrate: [200, 100, 200, 100, 200],
     tag: 'medibrid-notification',
     data: {

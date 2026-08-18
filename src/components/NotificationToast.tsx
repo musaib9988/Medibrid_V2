@@ -31,8 +31,8 @@ export const NotificationToast: React.FC<NotificationToastProps> = ({ notificati
           {/* Native Header */}
           <div className="flex items-center justify-between mb-1">
             <div className="flex items-center gap-1.5">
-              <div className="w-5 h-5 rounded-md bg-teal-500 overflow-hidden flex items-center justify-center p-0.5">
-                <img src="/icon-192.svg" className="w-full h-full object-contain drop-shadow-sm" alt="App" />
+              <div className="w-5 h-5 rounded-md bg-white overflow-hidden flex items-center justify-center p-0.5 shadow-sm">
+                <img src="/logo.webp" onError={(e) => (e.currentTarget.src = '/icon-192.svg')} className="w-full h-full object-contain" alt="App" />
               </div>
               <span className="text-[12px] font-semibold text-slate-600 tracking-wide">MEDIBRID</span>
             </div>
