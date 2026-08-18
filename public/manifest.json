@@ -15,6 +15,51 @@
   "categories": ["health", "medical", "lifestyle"],
   "prefer_related_applications": false,
   "related_applications": [],
+  "iarc_rating_id": "e84b072d-71b3-4d3e-86ae-31a8ce4e53b7",
+  "scope_extensions": [
+    {
+      "origin": "*.medibrid.com"
+    }
+  ],
+  "note_taking": {
+    "new_note_url": "/?action=note"
+  },
+  "edge_side_panel": {
+    "preferred_width": 400
+  },
+  "widgets": [
+    {
+      "name": "MediBrid Quick Actions",
+      "description": "Quickly access health services",
+      "tag": "medibrid-widget",
+      "ms_ac_template": "/widget/template.json",
+      "data": "/widget/data.json",
+      "type": "application/json",
+      "screenshots": [
+        {
+          "src": "/icon-512.svg",
+          "sizes": "512x512",
+          "label": "MediBrid Widget"
+        }
+      ],
+      "icons": [
+        {
+          "src": "/icon-192.svg",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "file_handlers": [
+    {
+      "action": "/?action=open-file",
+      "accept": {
+        "image/jpeg": [".jpg", ".jpeg"],
+        "image/png": [".png"],
+        "application/pdf": [".pdf"]
+      }
+    }
+  ],
   "launch_handler": {
     "client_mode": "auto"
   },
