@@ -86,7 +86,7 @@ export const MediBot: React.FC = () => {
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.95 }}
             transition={{ duration: 0.2 }}
-            className="fixed bottom-24 md:bottom-6 right-6 w-[90vw] sm:w-[400px] h-[500px] bg-white rounded-2xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-[100]"
+            className="fixed bottom-20 sm:bottom-24 md:bottom-6 right-3 sm:right-6 w-[calc(100vw-24px)] sm:w-[400px] h-[70vh] sm:h-[520px] max-h-[560px] bg-white rounded-3xl shadow-2xl border border-slate-200 flex flex-col overflow-hidden z-[100]"
           >
             {/* Header */}
             <div className="bg-teal-600 p-4 flex items-center justify-between text-white">

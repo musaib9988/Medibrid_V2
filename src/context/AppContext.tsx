@@ -78,17 +78,29 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
     }
   }
 
-  // 2. Request Notification / FCM
+// 2. Request Notification / FCM
+  // CRITICAL: Only call Notification.requestPermission() if user explicitly asked (force === true)
+  // If already granted, silently fetch the token without prompting the user.
   try {
     if (typeof window !== 'undefined' && 'Notification' in window) {
-      const permission = await Notification.requestPermission();
-      if (permission === 'granted') {
+      let currentPermission = Notification.permission;
+      if (currentPermission === 'default' && force) {
+        currentPermission = await Notification.requestPermission();
+      }
+
+      if (currentPermission === 'granted') {
         const messaging = await initMessaging();
         if (messaging) {
           try {
-            // Note: In a real prod app, provide a vapidKey here.
+            let swReg: ServiceWorkerRegistration | undefined = undefined;
+            if ('serviceWorker' in navigator) {
+              try {
+                swReg = await navigator.serviceWorker.getRegistration('/firebase-messaging-sw.js') || await navigator.serviceWorker.ready;
+              } catch (_) {}
+            }
             const currentToken = await getToken(messaging, {
-              vapidKey: 'BPdT2znpaDw-4gmTbKMLHsHzSyVPNBMrItGz9YhwpSadGkW3TW4qRh_LpDp9AL_3TS5qP--6qUlm95UnbvFr4Eg' // Aapko Firebase console se Web Push certificate key yahan daalni hai
+              vapidKey: 'BPdT2znpaDw-4gmTbKMLHsHzSyVPNBMrItGz9YhwpSadGkW3TW4qRh_LpDp9AL_3TS5qP--6qUlm95UnbvFr4Eg',
+              serviceWorkerRegistration: swReg
             });
             if (currentToken) {
               updates.fcmToken = currentToken;
@@ -100,7 +112,7 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
       }
     }
   } catch (err) {
-    console.warn("Notification permission error:", err);
+    console.warn("Notification permission check notice:", err);
   }
 
   // Save if any updates
@@ -208,7 +220,7 @@ interface AppContextType {
   deleteClinic: (clinicId: string) => Promise<void>;
   sendPushNotification: (title: string, body: string, targetRole?: UserRole | 'all') => Promise<void>;
   sendAppNotification: (title: string, body: string, targetUserId: string, targetToken?: string) => Promise<void>;
-  requestPermissions: () => Promise<void>;
+  requestPermissions: (force?: boolean) => Promise<void>;
   addCategory: (data: any) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   activeNotificationToast: { id: string; title: string; body: string } | null;
@@ -1437,9 +1449,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  const requestPermissions = async () => {
+  const requestPermissions = async (force = false) => {
     // If not logged in, pass empty string to still trigger location check
-    const updates = await requestPermissionsAndSave(firebaseUser?.uid || '', setUserProfile, false);
+    const updates = await requestPermissionsAndSave(firebaseUser?.uid || '', setUserProfile, force);
     if (updates && (updates as any).district) {
       setUserLocationDistrict((updates as any).district);
     }

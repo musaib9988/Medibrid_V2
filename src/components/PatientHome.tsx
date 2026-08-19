@@ -338,7 +338,7 @@ export const PatientHome: React.FC = () => {
   const handleRequestPermissions = async () => {
     setPermissionLoading(true);
     try {
-      await requestPermissions();
+      await requestPermissions(true);
     } finally {
       setPermissionLoading(false);
     }
@@ -516,7 +516,7 @@ export const PatientHome: React.FC = () => {
 
   return (
     <div className="flex flex-col w-full h-full bg-transparent min-h-screen">
-      <div className="flex-1 overflow-y-auto pb-24 px-4 pt-4 relative">
+      <div className="flex-1 overflow-y-auto pb-28 sm:pb-32 px-3.5 sm:px-4 pt-3 sm:pt-4 relative pb-safe touch-pan-y">
         {patientTab === 'home' && (
           <div className="animate-in fade-in">
             {/* Header */}

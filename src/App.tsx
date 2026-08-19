@@ -16,13 +16,13 @@ const AppBodyContent: React.FC = () => {
   const [isLoadingData, setIsLoadingData] = useState(true);
 
   useEffect(() => {
-    // Auto-fetch location/permissions
-    requestPermissions();
+    // Silent initial sync for location and permissions (never forces popups)
+    requestPermissions(false);
     const timer = setTimeout(() => {
       setIsLoadingData(false);
     }, 700);
     return () => clearTimeout(timer);
-  }, [requestPermissions]);
+  }, []);
 
   if (showSplash) {
     return <SplashScreen onFinish={() => setShowSplash(false)} />;

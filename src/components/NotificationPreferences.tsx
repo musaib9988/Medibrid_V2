@@ -57,7 +57,7 @@ export const NotificationPreferences: React.FC<{ onClose?: () => void }> = ({ on
 
   const handleEnableSystemNotifications = async () => {
     try {
-      await requestPermissions();
+      await requestPermissions(true);
     } catch (e) {
       console.warn("Could not request notification permissions:", e);
     }
