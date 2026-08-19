@@ -11,6 +11,7 @@ import {
 import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, disableNetwork } from 'firebase/firestore';
 import { auth, db, googleProvider, initMessaging } from '../firebase';
 import { getToken } from 'firebase/messaging';
+import { pushService } from '../services/pushNotificationService';
 
 // Add this constant near the top, maybe before the provider
 const getApiKey = () => {
@@ -774,6 +775,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (unsubProfile) unsubProfile();
     };
   }, []);
+
+  // Listen to Native Capacitor Push Tokens and Background Payloads
+  useEffect(() => {
+    pushService.onToken(async (token: string) => {
+      if (firebaseUser?.uid && token) {
+        try {
+          await setDoc(doc(db, 'users', firebaseUser.uid), { fcmToken: token }, { merge: true });
+          setUserProfile(prev => prev ? { ...prev, fcmToken: token } : null);
+        } catch (e) {
+          console.warn("Could not save native push token to profile:", e);
+        }
+      }
+    });
+
+    pushService.onNotificationReceived((payload) => {
+      if (payload.title || payload.body) {
+        triggerPushNotificationUI(payload.title, payload.body);
+      }
+    });
+
+    // Check for any pending notifications that arrived while app was terminated
+    pushService.syncPendingNotifications().then(notifications => {
+      if (notifications && notifications.length > 0) {
+        console.log(`[PushService] Restored ${notifications.length} background notifications`);
+      }
+    });
+  }, [firebaseUser?.uid]);
 
   // Public Data Seeding & Realtime Sync (Firebase Only)
   useEffect(() => {
