@@ -1,8 +1,84 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /{document=**} {
+    
+    function isSignedIn() { 
+      return request.auth != null; 
+    }
+    
+    function isAdmin() { 
+      return isSignedIn() && (
+        request.auth.token.email == 'malikmusaib928@gmail.com' ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+    
+    match /users/{userId} {
+      allow read: if true; 
+      allow write: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+    }
+
+    match /clinics/{clinicId} {
+      allow read: if true;
+      allow create: if isSignedIn();
+      allow update: if isSignedIn() && (resource.data.ownerId == request.auth.uid || isAdmin() || request.resource.data.ownerId == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+
+    match /doctors/{doctorId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /laboratories/{laboratoryId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /appointments/{appointmentId} {
+      allow read, write: if isSignedIn() || true;
+    }
+    
+    match /banners/{bannerId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow write: if isSignedIn();
+    }
+
+    match /chats/{chatId} {
+      allow read, write: if isSignedIn();
+      match /messages/{messageId} {
+        allow read, write: if isSignedIn();
+      }
+    }
+
+    match /feedback/{feedbackId} {
+      allow read: if isAdmin();
+      allow write: if true;
+    }
+
+    match /notifications/{notificationId} {
       allow read, write: if true;
+    }
+
+    match /districts/{districtId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+    
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /legalPolicies/{policyId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
