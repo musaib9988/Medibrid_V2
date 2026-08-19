@@ -100,7 +100,16 @@ async function startServer() {
         return res.status(400).json({ error: "Title and body are required." });
       }
 
-      if (serverKey && tokens && Array.isArray(tokens) && tokens.length > 0) {
+      if (!serverKey) {
+        console.warn("⚠️ FCM_SERVER_KEY is missing in environment variables. Push notifications will NOT be sent to devices. Only in-app notifications will work.");
+        return res.json({ 
+          success: false, 
+          message: "FCM_SERVER_KEY secret is missing. Please add it to your environment variables.",
+          error: "MISSING_FCM_KEY"
+        });
+      }
+
+      if (tokens && Array.isArray(tokens) && tokens.length > 0) {
         try {
           const response = await fetch("https://fcm.googleapis.com/fcm/send", {
             method: "POST",
@@ -110,7 +119,7 @@ async function startServer() {
             },
             body: JSON.stringify({
               registration_ids: tokens,
-              notification: { title, body, sound: "default", icon: "/icon.svg" },
+              notification: { title, body, sound: "default", icon: "/icon-192.png" },
               data: { click_action: "FLUTTER_NOTIFICATION_CLICK", status: "done" }
             }),
           });
@@ -118,13 +127,14 @@ async function startServer() {
           return res.json({ success: true, fcmResult: data });
         } catch (fcmErr) {
           console.warn("FCM Gateway notice:", fcmErr);
+          return res.json({ success: false, error: "Failed to reach FCM gateway" });
         }
       }
 
-      return res.json({ success: true, message: "In-App Push notification broadcasted successfully." });
+      return res.json({ success: true, message: "No tokens provided. In-App Push notification broadcasted successfully." });
     } catch (error: any) {
       console.error("FCM Error:", error);
-      res.json({ success: true, message: "Notification handled in-app." });
+      res.status(500).json({ success: false, error: "Internal server error." });
     }
   });
 
