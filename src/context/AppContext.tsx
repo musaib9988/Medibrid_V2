@@ -87,7 +87,9 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
         if (messaging) {
           try {
             // Note: In a real prod app, provide a vapidKey here.
-            const currentToken = await getToken(messaging);
+            const currentToken = await getToken(messaging, {
+              vapidKey: 'YOUR_VAPID_KEY_HERE' // Aapko Firebase console se Web Push certificate key yahan daalni hai
+            });
             if (currentToken) {
               updates.fcmToken = currentToken;
             }
