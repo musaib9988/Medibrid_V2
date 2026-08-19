@@ -13,6 +13,7 @@ import { MessagesTab } from './MessagesTab';
 import { ProfileEditForm } from './ProfileEditForm';
 import { FeedbackModal } from './FeedbackModal';
 import { UnserviceableLocationView } from './UnserviceableLocationView';
+import { NotificationPreferences } from './NotificationPreferences';
 
 const DEFAULT_FALLBACK_CLINICS: any[] = [];
 
@@ -1250,6 +1251,22 @@ export const PatientHome: React.FC = () => {
 
             <div className="mb-8">
                 <h3 className="font-bold text-slate-900 text-lg mb-4 flex items-center gap-2">
+                  <div className="w-1.5 h-5 bg-teal-600 rounded-full"></div>
+                  Settings & Preferences
+                </h3>
+                <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                  <ProfileMenuItem 
+                    onClick={() => setActiveProfileModal({title: "Notification Preferences"})} 
+                    icon={<Bell className="text-teal-600" />} 
+                    title="Notification Preferences" 
+                    subtitle="Customize OPD tokens, clinic updates & dosage alarms" 
+                    isLast 
+                  />
+                </div>
+            </div>
+
+            <div className="mb-8">
+                <h3 className="font-bold text-slate-900 text-lg mb-4 flex items-center gap-2">
                   <div className="w-1.5 h-5 bg-[#2D8C7C] rounded-full"></div>
                   Legal
                 </h3>
@@ -1309,6 +1326,8 @@ export const PatientHome: React.FC = () => {
             <div className="flex-1 overflow-y-auto p-6">
               {activeProfileModal.title === 'Edit Profile' ? (
                 <ProfileEditForm onClose={() => setActiveProfileModal(null)} />
+              ) : activeProfileModal.title === 'Notification Preferences' ? (
+                <NotificationPreferences onClose={() => setActiveProfileModal(null)} />
               ) : (() => {
                 const activePolicy = legalPolicies.find(p => 
                   p.id === activeProfileModal.policyId || 

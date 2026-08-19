@@ -5,6 +5,13 @@
 
 export type UserRole = 'user' | 'clinic_owner' | 'admin';
 
+export interface NotificationPreferences {
+  appointmentReminders: boolean;
+  clinicUpdates: boolean;
+  medicineAlerts: boolean;
+  healthAnnouncements: boolean;
+}
+
 export interface UserProfile {
   uid: string;
   name: string;
@@ -13,6 +20,9 @@ export interface UserProfile {
   photoURL?: string;
   role: UserRole;
   status?: 'active' | 'blocked';
+  bloodGroup?: string;
+  age?: string | number;
+  gender?: string;
   createdAt: string;
   updatedAt: string;
   fcmToken?: string;
@@ -20,6 +30,7 @@ export interface UserProfile {
   longitude?: number;
   city?: string;
   district?: string;
+  notificationPreferences?: NotificationPreferences;
 }
 
 export interface ClinicWorkingHours {

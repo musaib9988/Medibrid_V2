@@ -23,10 +23,10 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
   let updates: Partial<UserProfile> = {};
   
   // 1. Request Geolocation strictly only once per app open session
-  const locationFetchedStorage = sessionStorage.getItem('medibridge_location_fetched');
+  const locationFetchedStorage = sessionStorage.getItem('medibrid_location_fetched');
   if ((force || (!hasFetchedLocation && !locationFetchedStorage)) && 'geolocation' in navigator) {
     hasFetchedLocation = true;
-    sessionStorage.setItem('medibridge_location_fetched', 'true');
+    sessionStorage.setItem('medibrid_location_fetched', 'true');
     try {
       const pos = await new Promise<GeolocationPosition>((resolve, reject) => {
         navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 10000 });
@@ -88,7 +88,7 @@ const requestPermissionsAndSave = async (uid: string, setUserProfileCallback?: (
           try {
             // Note: In a real prod app, provide a vapidKey here.
             const currentToken = await getToken(messaging, {
-              vapidKey: 'YOUR_VAPID_KEY_HERE' // Aapko Firebase console se Web Push certificate key yahan daalni hai
+              vapidKey: 'BPdT2znpaDw-4gmTbKMLHsHzSyVPNBMrItGz9YhwpSadGkW3TW4qRh_LpDp9AL_3TS5qP--6qUlm95UnbvFr4Eg' // Aapko Firebase console se Web Push certificate key yahan daalni hai
             });
             if (currentToken) {
               updates.fcmToken = currentToken;
@@ -1057,7 +1057,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!firebaseUser) throw new Error('Not authenticated');
     setUserProfile(prev => prev ? { ...prev, ...data, updatedAt: new Date().toISOString() } : null);
     try {
-      await updateDoc(doc(db, 'users', firebaseUser.uid), { ...data, updatedAt: new Date().toISOString() });
+      await setDoc(doc(db, 'users', firebaseUser.uid), { ...data, updatedAt: new Date().toISOString() }, { merge: true });
     } catch (err) {
       console.warn("Profile update notice (saved locally):", err);
     }

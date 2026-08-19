@@ -1,0 +1,8 @@
+[{
+      "relation": ["delegate_permission/common.handle_all_urls"],
+      "target": {
+        "namespace": "android_app",
+        "package_name": "com.medibrid.app",
+        "sha256_cert_fingerprints": ["70:A4:03:9A:DB:44:0A:81:E6:D5:EA:55:3E:D1:B9:58:3F:7D:5F:C5:01:B8:5B:F6:C3:A6:53:A9:F9:25:54:86"]
+      }
+    }]
