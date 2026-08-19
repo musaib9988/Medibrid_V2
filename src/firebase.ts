@@ -4,7 +4,7 @@ import { getFirestore, setLogLevel } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
 import { getMessaging, isSupported } from "firebase/messaging";
-const firebaseConfig = {
+export const firebaseConfig = {
   apiKey: "AIzaSyBJ2PSl0iCwyFgpW5WLkgmJffOikRZfCLI",
   authDomain: "musaib0.firebaseapp.com",
   projectId: "musaib0",

@@ -3,7 +3,7 @@
  * Core TypeScript definitions
  */
 
-export type UserRole = 'user' | 'clinic_owner' | 'admin';
+export type UserRole = 'user' | 'clinic_owner' | 'clinic' | 'admin' | 'doctor' | 'patient';
 
 export interface NotificationPreferences {
   appointmentReminders: boolean;
@@ -20,11 +20,12 @@ export interface UserProfile {
   photoURL?: string;
   role: UserRole;
   status?: 'active' | 'blocked';
+  clinicId?: string;
   bloodGroup?: string;
   age?: string | number;
   gender?: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: string | number;
+  updatedAt?: string | number;
   fcmToken?: string;
   latitude?: number;
   longitude?: number;
@@ -45,7 +46,7 @@ export interface Clinic {
   clinicName: string;
   logoUrl?: string;
   coverImageUrl?: string;
-  description: string;
+  description?: string;
   about?: string;
   clinicType?: string;
   phone: string;
@@ -56,12 +57,16 @@ export interface Clinic {
   district?: string;
   city: string;
   state: string;
-  pinCode: string;
+  pinCode?: string;
   latitude?: number;
   longitude?: number;
   // Use mapping for days (monday, tuesday, etc.)
   workingHours?: Record<string, ClinicWorkingHours>;
-  emergencyAvailable: boolean;
+  timing?: string;
+  consultationFee?: number;
+  rating?: number;
+  reviewCount?: number;
+  emergencyAvailable?: boolean;
   waitingPatients?: number;
   services: string[];
   specializations: string[];

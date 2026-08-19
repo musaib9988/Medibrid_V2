@@ -9,9 +9,27 @@ import {
   GoogleAuthProvider
 } from 'firebase/auth';
 import { collection, addDoc, doc, setDoc, updateDoc, deleteDoc, onSnapshot, query, where, getDoc, getDocs, disableNetwork } from 'firebase/firestore';
-import { auth, db, googleProvider, initMessaging } from '../firebase';
+import { initializeApp as initializeSecondaryApp, getApps as getSecondaryApps } from 'firebase/app';
+import { getAuth as getSecondaryAuth, createUserWithEmailAndPassword as createSecondaryUser, signOut as secondarySignOut } from 'firebase/auth';
+import { auth, db, googleProvider, initMessaging, firebaseConfig } from '../firebase';
 import { getToken } from 'firebase/messaging';
 import { pushService } from '../services/pushNotificationService';
+
+export interface AdminClinicRegistrationData {
+  clinicName: string;
+  ownerName: string;
+  email: string;
+  password: string;
+  phone: string;
+  district: string;
+  city: string;
+  address: string;
+  clinicType?: string;
+  consultationFee?: number;
+  workingHours?: string;
+  services?: string[];
+  specializations?: string[];
+}
 
 // Add this constant near the top, maybe before the provider
 const getApiKey = () => {
@@ -215,6 +233,7 @@ interface AppContextType {
   updateAppointmentStatus: (appointmentId: string, status: 'upcoming' | 'confirmed' | 'completed' | 'cancelled') => Promise<void>;
   
   // Admin Management
+  adminRegisterClinic: (data: AdminClinicRegistrationData) => Promise<{ clinicId: string; ownerUid: string }>;
   updateUserStatus: (uid: string, status: 'active' | 'blocked') => Promise<void>;
   updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   deleteUser: (uid: string) => Promise<void>;
@@ -1372,6 +1391,91 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     return createdApt;
   };
 
+  const adminRegisterClinic = async (data: AdminClinicRegistrationData) => {
+    // 1. Create secondary Firebase App instance for Auth so Admin stays logged in
+    const secondaryAppName = 'AdminClinicRegisterApp';
+    let secondaryAppInstance;
+    const existingApps = getSecondaryApps();
+    const foundApp = existingApps.find(a => a.name === secondaryAppName);
+    if (foundApp) {
+      secondaryAppInstance = foundApp;
+    } else {
+      secondaryAppInstance = initializeSecondaryApp(firebaseConfig, secondaryAppName);
+    }
+
+    const secondaryAuthInstance = getSecondaryAuth(secondaryAppInstance);
+    let ownerUid = '';
+
+    try {
+      const userCredential = await createSecondaryUser(secondaryAuthInstance, data.email.trim(), data.password);
+      ownerUid = userCredential.user.uid;
+      await secondarySignOut(secondaryAuthInstance);
+    } catch (authErr: any) {
+      if (authErr.code === 'auth/email-already-in-use') {
+        // If user already exists, find existing user or generate id
+        const existingUser = users.find(u => u.email.toLowerCase() === data.email.trim().toLowerCase());
+        if (existingUser) {
+          ownerUid = existingUser.uid;
+        } else {
+          ownerUid = `user_${Date.now()}`;
+        }
+      } else {
+        throw authErr;
+      }
+    }
+
+    const clinicId = `clinic_${Date.now()}`;
+
+    // 2. Create User Profile in Firestore
+    const userProfileDoc: UserProfile = {
+      uid: ownerUid,
+      email: data.email.trim(),
+      name: data.ownerName.trim(),
+      phone: data.phone.trim(),
+      role: 'clinic',
+      status: 'active',
+      district: data.district,
+      city: data.city,
+      clinicId: clinicId,
+      createdAt: Date.now()
+    };
+    await safeSetDoc(doc(db, 'users', ownerUid), userProfileDoc);
+
+    // 3. Create Clinic Profile in Firestore
+    const clinicDoc: Clinic = {
+      id: clinicId,
+      ownerId: ownerUid,
+      clinicName: data.clinicName.trim(),
+      email: data.email.trim(),
+      phone: data.phone.trim(),
+      whatsapp: data.phone.trim(),
+      address: data.address.trim(),
+      locality: data.city.trim(),
+      city: data.city.trim(),
+      district: data.district.trim(),
+      state: 'Jammu and Kashmir',
+      clinicType: data.clinicType || 'General Clinic',
+      consultationFee: Number(data.consultationFee) || 400,
+      timing: data.workingHours || "09:00 AM - 06:00 PM",
+      services: data.services && data.services.length > 0 ? data.services : ["OPD Consultation", "General Health Checkup", "Pharmacy", "Laboratory Testing"],
+      specializations: data.specializations && data.specializations.length > 0 ? data.specializations : ["General Medicine"],
+      status: 'active',
+      verified: true,
+      rating: 4.9,
+      reviewCount: 1,
+      waitingPatients: 0,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString()
+    };
+    await safeSetDoc(doc(db, 'clinics', clinicId), clinicDoc);
+
+    // 4. Update local state immediately
+    setClinics(prev => [clinicDoc, ...prev.filter(c => c.id !== clinicId)]);
+    setUsers(prev => [userProfileDoc, ...prev.filter(u => u.uid !== ownerUid)]);
+
+    return { clinicId, ownerUid };
+  };
+
   const updateUserStatus = async (uid: string, status: 'active' | 'blocked') => {
     if (userProfile?.role !== 'admin') return;
     setUsers(prev => prev.map(u => u.uid === uid ? { ...u, status } : u));
@@ -1618,7 +1722,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       isWelcomeModalOpen, setIsWelcomeModalOpen,
       loginWithFirebaseEmail, registerWithFirebaseEmail, resetPassword, loginWithGoogle, logoutUser,
       createClinic, updateClinic, addDoctor, deleteDoctor, addLaboratory, deleteLaboratory, createBooking, updateClinicWaitingPatients, updateAppointmentStatus,
-      updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
+      adminRegisterClinic, updateUserStatus, updateProfile, deleteUser, deleteClinic, sendPushNotification, sendAppNotification, requestPermissions,
       addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
       addBanner, deleteBanner, toggleBannerStatus, updateLegalPolicy,
       activeNotificationToast, dismissNotificationToast

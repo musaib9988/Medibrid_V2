@@ -94,7 +94,21 @@ export const ClinicOnboarding: React.FC = () => {
         updatedAt: new Date().toISOString(),
       };
 
-      await addDoc(collection(db, 'clinics'), newClinic);
+      const clinicRef = await addDoc(collection(db, 'clinics'), newClinic);
+      
+      // Update user doc with clinicId and clinic role
+      try {
+        await updateDoc(doc(db, 'users', firebaseUser.uid), {
+          role: 'clinic',
+          clinicId: clinicRef.id,
+          district: clinicData.district || 'Srinagar',
+          city: clinicData.city || 'Srinagar',
+          phone: clinicData.phone || '',
+          updatedAt: new Date().toISOString()
+        });
+      } catch (userUpdErr) {
+        console.warn("User update during onboarding notice:", userUpdErr);
+      }
       
       // Update local state to step 8 (success preview)
       setStep(8);

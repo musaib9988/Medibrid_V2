@@ -4,7 +4,8 @@ import {
   Users, Building2, LayoutDashboard, Image as ImageIcon, Trash2, Plus, Bell, ShieldAlert, 
   Ban, CheckCircle2, LogOut, Grid, CheckCircle, Search, Settings, Activity, FileText,
   MapPin, FolderTree, Star, Radio, Edit3, HeartPulse, RefreshCw, AlertTriangle,
-  Clock, Filter, ShieldCheck, Download, Zap, ToggleLeft, ToggleRight, Stethoscope, Award, PhoneCall
+  Clock, Filter, ShieldCheck, Download, Zap, ToggleLeft, ToggleRight, Stethoscope, Award, PhoneCall,
+  Eye, EyeOff, Copy, Check, Key, UserPlus, Sparkles, Building, Phone
 } from 'lucide-react';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
@@ -48,7 +49,7 @@ const NavItem: React.FC<NavItemProps> = ({ icon: Icon, label, id, badge, activeT
 export const AdminPanel: React.FC = () => {
   const { 
     users, clinics, doctors, laboratories, appointments, userProfile, banners, categories, districts, legalPolicies = [],
-    updateUserStatus, deleteUser, deleteClinic, sendPushNotification, updateClinic, logoutUser,
+    adminRegisterClinic, updateUserStatus, deleteUser, deleteClinic, sendPushNotification, updateClinic, logoutUser,
     addCategory, deleteCategory, addDistrict, deleteDistrict, toggleDistrictStatus,
     addBanner, deleteBanner, toggleBannerStatus, updateLegalPolicy
   } = useApp();
@@ -177,6 +178,154 @@ export const AdminPanel: React.FC = () => {
   const [notifData, setNotifData] = useState({ title: '', body: '', targetRole: 'all' as any });
   const [isSending, setIsSending] = useState(false);
   const [sendSuccess, setSendSuccess] = useState(false);
+  const [testCountdown, setTestCountdown] = useState<number | null>(null);
+
+  // Admin Direct Clinic Registration State
+  const [isRegisteringClinic, setIsRegisteringClinic] = useState(false);
+  const [clinicSearchQuery, setClinicSearchQuery] = useState('');
+  const [clinicDistrictFilter, setClinicDistrictFilter] = useState('all');
+  const [clinicForm, setClinicForm] = useState({
+    clinicName: '',
+    ownerName: '',
+    email: '',
+    password: '',
+    phone: '',
+    district: 'Srinagar',
+    city: 'Srinagar',
+    address: '',
+    clinicType: 'General Clinic',
+    consultationFee: '400',
+    workingHours: '09:00 AM - 06:00 PM',
+    services: ['OPD Consultation', 'General Health Checkup', 'Pharmacy'],
+    specializations: ['General Medicine']
+  });
+  const [newSpecializationInput, setNewSpecializationInput] = useState('');
+  const [clinicRegError, setClinicRegError] = useState('');
+  const [clinicRegLoading, setClinicRegLoading] = useState(false);
+  const [createdClinicReceipt, setCreatedClinicReceipt] = useState<{
+    clinicName: string;
+    ownerName: string;
+    email: string;
+    password: string;
+    district: string;
+    city: string;
+    phone: string;
+    clinicId: string;
+  } | null>(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [copiedReceipt, setCopiedReceipt] = useState(false);
+
+  const generateRandomPassword = () => {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789@#';
+    let pass = 'Clinic@';
+    for (let i = 0; i < 5; i++) {
+      pass += chars.charAt(Math.floor(Math.random() * chars.length));
+    }
+    setClinicForm(prev => ({ ...prev, password: pass }));
+  };
+
+  const handleAdminRegisterClinicSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setClinicRegError('');
+    if (!clinicForm.clinicName.trim()) return setClinicRegError('Clinic Name is required.');
+    if (!clinicForm.ownerName.trim()) return setClinicRegError('Owner Full Name is required.');
+    if (!clinicForm.email.trim() || !clinicForm.email.includes('@')) return setClinicRegError('Valid Owner Email is required.');
+    if (!clinicForm.password || clinicForm.password.length < 6) return setClinicRegError('Password must be at least 6 characters.');
+    if (!clinicForm.phone.trim()) return setClinicRegError('Phone / Contact number is required.');
+    if (!clinicForm.address.trim()) return setClinicRegError('Clinic address is required.');
+
+    setClinicRegLoading(true);
+    try {
+      const result = await adminRegisterClinic({
+        clinicName: clinicForm.clinicName,
+        ownerName: clinicForm.ownerName,
+        email: clinicForm.email,
+        password: clinicForm.password,
+        phone: clinicForm.phone,
+        district: clinicForm.district || 'Srinagar',
+        city: clinicForm.city || clinicForm.district || 'Srinagar',
+        address: clinicForm.address,
+        clinicType: clinicForm.clinicType,
+        consultationFee: Number(clinicForm.consultationFee) || 400,
+        workingHours: clinicForm.workingHours,
+        services: clinicForm.services,
+        specializations: clinicForm.specializations
+      });
+
+      logActivity('Clinic Registered by Admin', `Directly registered "${clinicForm.clinicName}" for ${clinicForm.ownerName} (${clinicForm.email})`, 'success');
+      
+      setCreatedClinicReceipt({
+        clinicName: clinicForm.clinicName,
+        ownerName: clinicForm.ownerName,
+        email: clinicForm.email,
+        password: clinicForm.password,
+        district: clinicForm.district,
+        city: clinicForm.city,
+        phone: clinicForm.phone,
+        clinicId: result.clinicId
+      });
+
+      // Reset form
+      setClinicForm({
+        clinicName: '',
+        ownerName: '',
+        email: '',
+        password: '',
+        phone: '',
+        district: 'Srinagar',
+        city: 'Srinagar',
+        address: '',
+        clinicType: 'General Clinic',
+        consultationFee: '400',
+        workingHours: '09:00 AM - 06:00 PM',
+        services: ['OPD Consultation', 'General Health Checkup', 'Pharmacy'],
+        specializations: ['General Medicine']
+      });
+      setIsRegisteringClinic(false);
+    } catch (err: any) {
+      console.error('Error registering clinic:', err);
+      setClinicRegError(err.message || 'Failed to register clinic. Please verify details.');
+    } finally {
+      setClinicRegLoading(false);
+    }
+  };
+
+  const triggerDelayedPushTest = async () => {
+    let count = 5;
+    setTestCountdown(count);
+    const interval = setInterval(async () => {
+      count -= 1;
+      if (count > 0) {
+        setTestCountdown(count);
+      } else {
+        clearInterval(interval);
+        setTestCountdown(null);
+        try {
+          if ('Notification' in window && Notification.permission === 'granted') {
+            if ('serviceWorker' in navigator) {
+              const reg = await navigator.serviceWorker.ready;
+              reg.showNotification('🏥 MediBrid Background Test', {
+                body: 'Notification system working on mobile & background! 🔔',
+                icon: '/icon-192.png',
+                badge: '/icon-192.png',
+                tag: 'medibrid-bg-test',
+                vibrate: [200, 100, 200]
+              } as any);
+            } else {
+              new Notification('🏥 MediBrid Background Test', {
+                body: 'Notification system working on mobile & background! 🔔',
+                icon: '/icon-192.png'
+              });
+            }
+          }
+          await sendPushNotification('🏥 MediBrid Background Alert', 'Test push broadcast received successfully on your device!', 'all');
+          logActivity('Background Push Test Fired', 'Delayed notification fired for background verification', 'info');
+        } catch (pushErr) {
+          console.warn('Push test notification error:', pushErr);
+        }
+      }
+    }, 1000);
+  };
 
   const handleAddBanner = async () => {
     if (!newBanner.title || !newBanner.imageUrl) return;
@@ -1013,36 +1162,480 @@ export const AdminPanel: React.FC = () => {
 
           {/* CLINICS / PROVIDERS DIRECTORY */}
           {activeTab === 'clinics' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-in fade-in">
-              <h2 className="text-lg font-bold text-slate-900 mb-6">Providers Directory ({clinics.length})</h2>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-in fade-in space-y-6">
+              {/* Header & Actions */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-slate-100">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <Building2 className="w-5 h-5 text-teal-600" />
+                    <h2 className="text-lg font-bold text-slate-900">Clinics & Healthcare Providers Directory</h2>
+                    <span className="bg-teal-100 text-teal-800 text-xs px-2.5 py-0.5 rounded-full font-extrabold">{clinics.length} Total</span>
+                  </div>
+                  <p className="text-xs text-slate-500 mt-1">Admin can directly register clinics with owner login credentials, and clinic owners can also self-register.</p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      generateRandomPassword();
+                      setIsRegisteringClinic(true);
+                    }}
+                    className="bg-teal-600 hover:bg-teal-700 text-white px-4 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 transition-all shadow-md shadow-teal-600/20 shrink-0"
+                  >
+                    <Plus className="w-4 h-4" /> Register New Clinic (Direct)
+                  </button>
+                </div>
+              </div>
+
+              {/* Search & Filters */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="flex-1 relative">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input 
+                    type="text" 
+                    placeholder="Search by clinic name, owner name, or city..." 
+                    value={clinicSearchQuery}
+                    onChange={e => setClinicSearchQuery(e.target.value)}
+                    className="w-full pl-9 pr-3 py-2 text-xs border border-slate-200 rounded-xl bg-slate-50 focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500"
+                  />
+                </div>
+                <div className="w-full sm:w-48">
+                  <select 
+                    value={clinicDistrictFilter}
+                    onChange={e => setClinicDistrictFilter(e.target.value)}
+                    className="w-full p-2 text-xs border border-slate-200 rounded-xl bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                  >
+                    <option value="all">All J&K Districts</option>
+                    {districts.map(d => (
+                      <option key={d.id} value={d.name}>{d.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+
+              {/* Clinics Table */}
               <div className="overflow-x-auto">
-                <div className="overflow-x-auto"><table className="w-full text-left border-collapse">
+                <table className="w-full text-left border-collapse">
                   <thead>
                     <tr className="border-b border-slate-200 text-slate-500 text-xs uppercase bg-slate-50">
-                      <th className="p-3 font-bold">Clinic Name</th>
-                      <th className="p-3 font-bold">City / District</th>
+                      <th className="p-3 font-bold">Clinic / Facility</th>
+                      <th className="p-3 font-bold">Owner & Contact</th>
+                      <th className="p-3 font-bold">Location</th>
+                      <th className="p-3 font-bold">Fee & Hours</th>
                       <th className="p-3 font-bold">Status</th>
                       <th className="p-3 font-bold text-right">Actions</th>
                     </tr>
                   </thead>
                   <tbody className="text-xs divide-y divide-slate-100">
-                    {clinics.map(c => (
-                      <tr key={c.id} className="hover:bg-slate-50">
-                        <td className="p-3 font-bold text-slate-900">{c.clinicName}</td>
-                        <td className="p-3 text-slate-600">{c.city} ({c.district || 'Srinagar'})</td>
-                        <td className="p-3">
-                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${c.status === 'active' ? 'bg-emerald-100 text-emerald-800' : 'bg-amber-100 text-amber-800'}`}>{c.status}</span>
-                        </td>
-                        <td className="p-3 text-right">
-                          <div className="flex justify-end gap-1">
-                            <button onClick={() => updateClinic(c.id, { verified: !c.verified })} className={`p-1.5 rounded-lg ${c.verified ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-600'}`}><CheckCircle className="w-4 h-4" /></button>
-                            <button onClick={() => deleteClinic(c.id)} className="p-1.5 bg-rose-100 text-rose-800 rounded-lg"><Trash2 className="w-4 h-4" /></button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
+                    {clinics
+                      .filter(c => {
+                        const matchesQuery = !clinicSearchQuery || 
+                          c.clinicName.toLowerCase().includes(clinicSearchQuery.toLowerCase()) ||
+                          (c.ownerName && c.ownerName.toLowerCase().includes(clinicSearchQuery.toLowerCase())) ||
+                          (c.email && c.email.toLowerCase().includes(clinicSearchQuery.toLowerCase())) ||
+                          (c.city && c.city.toLowerCase().includes(clinicSearchQuery.toLowerCase()));
+                        const matchesDistrict = clinicDistrictFilter === 'all' || 
+                          (c.district && c.district.toLowerCase() === clinicDistrictFilter.toLowerCase());
+                        return matchesQuery && matchesDistrict;
+                      })
+                      .map(c => {
+                        const ownerUser = users.find(u => u.uid === c.ownerId || u.email?.toLowerCase() === c.email?.toLowerCase());
+                        return (
+                          <tr key={c.id} className="hover:bg-slate-50/80 transition-colors">
+                            <td className="p-3">
+                              <div className="flex items-center gap-3">
+                                <div className="w-10 h-10 rounded-xl bg-teal-50 border border-teal-100 flex items-center justify-center text-teal-700 font-extrabold text-sm shrink-0">
+                                  {c.clinicName.charAt(0)}
+                                </div>
+                                <div>
+                                  <p className="font-bold text-slate-900">{c.clinicName}</p>
+                                  <p className="text-[10px] text-teal-700 font-semibold">{c.clinicType || 'General Clinic'}</p>
+                                  {c.verified && (
+                                    <span className="inline-flex items-center gap-1 text-[9px] font-extrabold text-emerald-700 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5">
+                                      <CheckCircle2 className="w-3 h-3 text-emerald-600" /> Verified Partner
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-bold text-slate-900">{c.ownerName || ownerUser?.name || 'Clinic Owner'}</p>
+                              <p className="text-[11px] text-slate-500">{c.email || ownerUser?.email || 'N/A'}</p>
+                              <p className="text-[10px] text-slate-400 font-mono">{c.phone || ownerUser?.phone || 'N/A'}</p>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-bold text-slate-800">{c.city || 'Srinagar'}</p>
+                              <p className="text-[10px] text-slate-500 font-medium">{c.district || 'Srinagar'} • J&K</p>
+                              <p className="text-[9px] text-slate-400 truncate max-w-[140px]">{c.address}</p>
+                            </td>
+                            <td className="p-3">
+                              <p className="font-bold text-slate-900">₹{c.consultationFee || 400}</p>
+                              <p className="text-[10px] text-slate-500 flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-slate-400" /> {c.timing || '09:00 AM - 06:00 PM'}
+                              </p>
+                            </td>
+                            <td className="p-3">
+                              <span className={`px-2.5 py-1 rounded-full text-[10px] font-extrabold uppercase tracking-wider ${
+                                c.status === 'active' 
+                                  ? 'bg-emerald-100 text-emerald-800 border border-emerald-200' 
+                                  : 'bg-amber-100 text-amber-800 border border-amber-200'
+                              }`}>
+                                {c.status}
+                              </span>
+                            </td>
+                            <td className="p-3 text-right">
+                              <div className="flex justify-end items-center gap-1.5">
+                                <button 
+                                  onClick={async () => {
+                                    const nextVerified = !c.verified;
+                                    await updateClinic(c.id, { verified: nextVerified, status: nextVerified ? 'active' : 'pending' });
+                                    logActivity('Clinic Verification Updated', `Clinic "${c.clinicName}" verified status set to ${nextVerified}`, nextVerified ? 'success' : 'warning');
+                                  }} 
+                                  className={`p-2 rounded-xl text-xs font-bold transition-colors ${c.verified ? 'bg-emerald-100 text-emerald-800 hover:bg-emerald-200' : 'bg-slate-100 text-slate-600 hover:bg-emerald-100 hover:text-emerald-800'}`}
+                                  title={c.verified ? 'Verified Active Provider' : 'Approve & Verify Clinic'}
+                                >
+                                  <CheckCircle className="w-4 h-4" />
+                                </button>
+                                <button 
+                                  onClick={async () => {
+                                    if (confirm(`Are you sure you want to delete clinic "${c.clinicName}"? This action cannot be undone.`)) {
+                                      await deleteClinic(c.id);
+                                      logActivity('Clinic Deleted', `Admin deleted clinic "${c.clinicName}"`, 'warning');
+                                    }
+                                  }} 
+                                  className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl transition-colors border border-rose-100"
+                                  title="Delete Clinic"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                   </tbody>
-                </table></div>
+                </table>
+              </div>
+
+              {clinics.length === 0 && (
+                <div className="text-center py-12 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
+                  <Building2 className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+                  <p className="text-slate-700 text-xs font-bold">No clinics registered yet</p>
+                  <p className="text-slate-400 text-[11px] mt-1 mb-4">Click below to directly register your first hospital or clinic.</p>
+                  <button 
+                    onClick={() => {
+                      generateRandomPassword();
+                      setIsRegisteringClinic(true);
+                    }} 
+                    className="px-4 py-2 bg-teal-600 text-white rounded-xl text-xs font-bold shadow-sm"
+                  >
+                    + Register Clinic (Direct)
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ADMIN DIRECT CLINIC REGISTRATION MODAL */}
+          {isRegisteringClinic && (
+            <div className="fixed inset-0 z-[600] bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 overflow-y-auto">
+              <div className="bg-white rounded-3xl w-full max-w-2xl p-6 sm:p-8 relative shadow-2xl my-8 border border-slate-200 animate-in fade-in zoom-in-95 max-h-[90vh] overflow-y-auto">
+                <button 
+                  onClick={() => setIsRegisteringClinic(false)}
+                  className="absolute top-5 right-5 p-2 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-full transition-colors"
+                >
+                  <Ban className="w-5 h-5" />
+                </button>
+
+                <div className="flex items-center gap-3 mb-6 pb-4 border-b border-slate-100">
+                  <div className="w-12 h-12 rounded-2xl bg-teal-600 text-white flex items-center justify-center font-bold text-xl shadow-lg shadow-teal-600/30">
+                    🏥
+                  </div>
+                  <div>
+                    <h2 className="text-lg font-black text-slate-900">Register & Onboard New Clinic</h2>
+                    <p className="text-xs text-slate-500">Super Admin Direct Registration with Clinic Owner Login Credentials.</p>
+                  </div>
+                </div>
+
+                {clinicRegError && (
+                  <div className="mb-5 p-3.5 bg-rose-50 border border-rose-200 rounded-2xl text-rose-800 text-xs font-semibold flex items-center gap-2.5">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>{clinicRegError}</span>
+                  </div>
+                )}
+
+                <form onSubmit={handleAdminRegisterClinicSubmit} className="space-y-5">
+                  {/* SECTION 1: CLINIC PROFILE */}
+                  <div>
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-teal-800 mb-3 flex items-center gap-2">
+                      <Building2 className="w-4 h-4 text-teal-600" /> 1. Clinic / Facility Information
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Clinic / Hospital Name *</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. Kashmir Medeor Health Center"
+                          value={clinicForm.clinicName}
+                          onChange={e => setClinicForm({...clinicForm, clinicName: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Facility Classification</label>
+                        <select 
+                          value={clinicForm.clinicType}
+                          onChange={e => setClinicForm({...clinicForm, clinicType: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        >
+                          <option value="General Clinic">General Clinic</option>
+                          <option value="Multi-Specialty Hospital">Multi-Specialty Hospital</option>
+                          <option value="Single Specialty Clinic">Single Specialty Clinic</option>
+                          <option value="Diagnostic & Lab Center">Diagnostic & Lab Center</option>
+                          <option value="Dental Care Center">Dental Care Center</option>
+                          <option value="Maternity & Childcare Unit">Maternity & Childcare Unit</option>
+                          <option value="Nursing Home & Daycare">Nursing Home & Daycare</option>
+                        </select>
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Standard Consultation Fee (₹)</label>
+                        <input 
+                          type="number" 
+                          min="0"
+                          placeholder="400"
+                          value={clinicForm.consultationFee}
+                          onChange={e => setClinicForm({...clinicForm, consultationFee: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">OPD Working Hours</label>
+                        <input 
+                          type="text" 
+                          placeholder="09:00 AM - 06:00 PM"
+                          value={clinicForm.workingHours}
+                          onChange={e => setClinicForm({...clinicForm, workingHours: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 2: OWNER LOGIN CREDENTIALS */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-xs font-extrabold uppercase tracking-wider text-teal-800 flex items-center gap-2">
+                        <Key className="w-4 h-4 text-teal-600" /> 2. Clinic Owner Login Account (Credentials)
+                      </h3>
+                      <span className="text-[10px] text-amber-700 font-bold bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                        Owner will log in with these
+                      </span>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Owner Full Name *</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. Dr. Tariq Ahmad Malik"
+                          value={clinicForm.ownerName}
+                          onChange={e => setClinicForm({...clinicForm, ownerName: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Owner Contact / WhatsApp *</label>
+                        <input 
+                          type="tel" 
+                          required
+                          placeholder="e.g. +91 94190 12345"
+                          value={clinicForm.phone}
+                          onChange={e => setClinicForm({...clinicForm, phone: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Owner Login Email *</label>
+                        <input 
+                          type="email" 
+                          required
+                          placeholder="e.g. tariq.clinic@medibrid.com"
+                          value={clinicForm.email}
+                          onChange={e => setClinicForm({...clinicForm, email: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+
+                      <div>
+                        <div className="flex justify-between items-center mb-1">
+                          <label className="text-[11px] font-bold text-slate-700">Owner Login Password *</label>
+                          <button 
+                            type="button" 
+                            onClick={generateRandomPassword}
+                            className="text-[10px] text-teal-700 font-bold hover:underline flex items-center gap-1"
+                          >
+                            <Sparkles className="w-3 h-3" /> Auto-Generate
+                          </button>
+                        </div>
+                        <div className="relative">
+                          <input 
+                            type={showPassword ? 'text' : 'password'}
+                            required
+                            placeholder="Set secure password..."
+                            value={clinicForm.password}
+                            onChange={e => setClinicForm({...clinicForm, password: e.target.value})}
+                            className="w-full p-2.5 pr-10 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-mono font-medium"
+                          />
+                          <button 
+                            type="button" 
+                            onClick={() => setShowPassword(!showPassword)}
+                            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-1"
+                          >
+                            {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SECTION 3: LOCATION DETAILS */}
+                  <div className="pt-2 border-t border-slate-100">
+                    <h3 className="text-xs font-extrabold uppercase tracking-wider text-teal-800 mb-3 flex items-center gap-2">
+                      <MapPin className="w-4 h-4 text-teal-600" /> 3. J&K Location & Address
+                    </h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">District (J&K) *</label>
+                        <select 
+                          value={clinicForm.district}
+                          onChange={e => setClinicForm({...clinicForm, district: e.target.value, city: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        >
+                          {districts.map(d => (
+                            <option key={d.id} value={d.name}>{d.name}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">City / Town / Locality *</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. Lal Chowk / Karan Nagar"
+                          value={clinicForm.city}
+                          onChange={e => setClinicForm({...clinicForm, city: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+                      <div className="sm:col-span-2">
+                        <label className="block text-[11px] font-bold text-slate-700 mb-1">Complete Street Address *</label>
+                        <input 
+                          type="text" 
+                          required
+                          placeholder="e.g. Near Municipal Complex, Main Market Road, Srinagar"
+                          value={clinicForm.address}
+                          onChange={e => setClinicForm({...clinicForm, address: e.target.value})}
+                          className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* SUBMIT BUTTON */}
+                  <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
+                    <button 
+                      type="button" 
+                      onClick={() => setIsRegisteringClinic(false)}
+                      className="px-5 py-2.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-600 hover:bg-slate-100 transition-colors"
+                    >
+                      Cancel
+                    </button>
+                    <button 
+                      type="submit" 
+                      disabled={clinicRegLoading}
+                      className="px-6 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl text-xs font-bold shadow-md shadow-teal-600/30 transition-all flex items-center gap-2 disabled:opacity-50"
+                    >
+                      {clinicRegLoading ? (
+                        <>
+                          <RefreshCw className="w-4 h-4 animate-spin" /> Registering Clinic & Account...
+                        </>
+                      ) : (
+                        <>
+                          <CheckCircle2 className="w-4 h-4" /> Create Clinic & Owner Account
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          )}
+
+          {/* CREATED CLINIC SUCCESS RECEIPT MODAL */}
+          {createdClinicReceipt && (
+            <div className="fixed inset-0 z-[700] bg-slate-900/70 backdrop-blur-sm flex items-center justify-center p-4">
+              <div className="bg-white rounded-3xl w-full max-w-md p-6 relative shadow-2xl border border-emerald-200 animate-in fade-in zoom-in-95">
+                <div className="text-center mb-5">
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto mb-3 text-2xl font-black shadow-lg shadow-emerald-500/20">
+                    <CheckCircle2 className="w-8 h-8" />
+                  </div>
+                  <h2 className="text-lg font-black text-slate-900">Clinic Registered Successfully!</h2>
+                  <p className="text-xs text-slate-500 mt-0.5">The clinic and owner account are active and verified.</p>
+                </div>
+
+                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200 space-y-3 mb-5">
+                  <div>
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Clinic Name</span>
+                    <p className="text-xs font-extrabold text-slate-900">{createdClinicReceipt.clinicName}</p>
+                    <p className="text-[10px] text-slate-500">{createdClinicReceipt.district}, J&K</p>
+                  </div>
+
+                  <div className="pt-2 border-t border-slate-200">
+                    <span className="text-[10px] font-bold text-teal-800 uppercase tracking-wider block mb-1">Owner Login Credentials</span>
+                    <div className="bg-white p-2.5 rounded-xl border border-teal-200 space-y-1.5 font-mono text-xs">
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-sans text-[11px]">Email:</span>
+                        <strong className="text-slate-900">{createdClinicReceipt.email}</strong>
+                      </div>
+                      <div className="flex justify-between items-center">
+                        <span className="text-slate-500 font-sans text-[11px]">Password:</span>
+                        <strong className="text-teal-700 bg-teal-50 px-2 py-0.5 rounded">{createdClinicReceipt.password}</strong>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <button 
+                    onClick={() => {
+                      const shareText = `🏥 MediBrid Clinic Registration Successful!\n\nClinic: ${createdClinicReceipt.clinicName}\nOwner: ${createdClinicReceipt.ownerName}\nDistrict: ${createdClinicReceipt.district}\n\n🔑 Login Credentials:\nEmail: ${createdClinicReceipt.email}\nPassword: ${createdClinicReceipt.password}\n\nLog in at: ${window.location.origin}`;
+                      navigator.clipboard.writeText(shareText);
+                      setCopiedReceipt(true);
+                      setTimeout(() => setCopiedReceipt(false), 2500);
+                    }}
+                    className={`w-full py-3 rounded-xl text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm ${
+                      copiedReceipt 
+                        ? 'bg-emerald-600 text-white' 
+                        : 'bg-teal-600 hover:bg-teal-700 text-white'
+                    }`}
+                  >
+                    {copiedReceipt ? (
+                      <><Check className="w-4 h-4" /> Credentials Copied to Clipboard!</>
+                    ) : (
+                      <><Copy className="w-4 h-4" /> Copy Login Credentials for WhatsApp / SMS</>
+                    )}
+                  </button>
+
+                  <button 
+                    onClick={() => setCreatedClinicReceipt(null)}
+                    className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-colors"
+                  >
+                    Done & View Providers
+                  </button>
+                </div>
               </div>
             </div>
           )}
@@ -1284,29 +1877,115 @@ export const AdminPanel: React.FC = () => {
 
           {/* BROADCAST CENTER */}
           {activeTab === 'notifications' && (
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-in fade-in max-w-xl">
-              <h2 className="text-lg font-bold text-slate-900 mb-4">Broadcast Push Notification</h2>
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-sm animate-in fade-in max-w-2xl space-y-6">
+              <div className="flex items-center justify-between pb-4 border-b border-slate-100">
+                <div>
+                  <h2 className="text-lg font-bold text-slate-900 flex items-center gap-2">
+                    <Bell className="w-5 h-5 text-teal-600" /> Push Notification & Alerts Broadcast Center
+                  </h2>
+                  <p className="text-xs text-slate-500 mt-0.5">Send instant push notifications and alerts to mobile and web devices.</p>
+                </div>
+              </div>
+
+              {/* Background Push Test Card */}
+              <div className="bg-gradient-to-r from-teal-50 to-emerald-50 p-4 rounded-2xl border border-teal-200">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <h3 className="text-xs font-black text-teal-900 flex items-center gap-1.5">
+                      <Zap className="w-4 h-4 text-teal-600" /> Test Background Push Notification (5s Countdown)
+                    </h3>
+                    <p className="text-[11px] text-teal-700 mt-0.5">
+                      Click below, then immediately minimize the app or switch tabs. A real notification will trigger in 5 seconds!
+                    </p>
+                  </div>
+                  <button 
+                    type="button"
+                    disabled={testCountdown !== null}
+                    onClick={triggerDelayedPushTest}
+                    className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 text-white rounded-xl font-bold text-xs shadow-md shadow-teal-600/20 transition-all shrink-0 flex items-center justify-center gap-2 disabled:opacity-75"
+                  >
+                    {testCountdown !== null ? (
+                      <span className="font-mono text-sm font-black bg-teal-800 px-2 py-0.5 rounded-lg animate-pulse">
+                        Minimise App! ({testCountdown}s)
+                      </span>
+                    ) : (
+                      <>
+                        <Clock className="w-4 h-4" /> Start 5s Background Test
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+
+              {/* Broadcast Message Form */}
               <div className="space-y-4">
-                <input type="text" placeholder="Alert Title" value={notifData.title} onChange={e => setNotifData({...notifData, title: e.target.value})} className="w-full p-2.5 text-xs border rounded-xl" />
-                <textarea placeholder="Message Body..." value={notifData.body} onChange={e => setNotifData({...notifData, body: e.target.value})} className="w-full p-2.5 text-xs border rounded-xl h-24" />
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Target Audience</label>
+                  <select 
+                    value={notifData.targetRole} 
+                    onChange={e => setNotifData({...notifData, targetRole: e.target.value as any})}
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium"
+                  >
+                    <option value="all">📢 All Users (Patients + Clinics + Doctors)</option>
+                    <option value="patient">👤 Patients Only</option>
+                    <option value="clinic">🏥 Clinic Owners Only</option>
+                    <option value="doctor">🩺 Doctors Only</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Notification Title *</label>
+                  <input 
+                    type="text" 
+                    placeholder="e.g. 📢 Important OPD Schedule Update" 
+                    value={notifData.title} 
+                    onChange={e => setNotifData({...notifData, title: e.target.value})} 
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium" 
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Notification Message Body *</label>
+                  <textarea 
+                    placeholder="Enter announcement message that will appear on devices..." 
+                    value={notifData.body} 
+                    onChange={e => setNotifData({...notifData, body: e.target.value})} 
+                    className="w-full p-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-teal-500 font-medium h-24" 
+                  />
+                </div>
+
                 <button 
                   onClick={async () => {
                     if (!notifData.title || !notifData.body) return;
                     setIsSending(true);
                     try {
                       await sendPushNotification(notifData.title, notifData.body, notifData.targetRole);
-                      logActivity('Broadcast Sent', `Notification "${notifData.title}" dispatched`, 'success');
+                      logActivity('Broadcast Sent', `Notification "${notifData.title}" dispatched to ${notifData.targetRole}`, 'success');
                       setSendSuccess(true);
                       setNotifData({ title: '', body: '', targetRole: 'all' });
+                      setTimeout(() => setSendSuccess(false), 4000);
                     } finally {
                       setIsSending(false);
                     }
                   }} 
-                  className="w-full py-3 bg-teal-600 text-white font-bold text-xs rounded-xl shadow-sm"
+                  disabled={isSending || !notifData.title.trim() || !notifData.body.trim()}
+                  className="w-full py-3 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl shadow-md shadow-teal-600/20 transition-all flex items-center justify-center gap-2"
                 >
-                  {isSending ? 'Sending...' : 'Dispatch Broadcast'}
+                  {isSending ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" /> Dispatching Broadcast...
+                    </>
+                  ) : (
+                    <>
+                      <Bell className="w-4 h-4" /> Dispatch Push Broadcast
+                    </>
+                  )}
                 </button>
-                {sendSuccess && <p className="text-emerald-700 font-bold text-xs text-center">Notification Dispatched!</p>}
+                {sendSuccess && (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs font-bold rounded-xl text-center flex items-center justify-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Push Broadcast Dispatched Successfully to Devices!
+                  </div>
+                )}
               </div>
             </div>
           )}
